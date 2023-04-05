@@ -1,0 +1,31 @@
+{
+  "name": "lmdb-query",
+  "version": "0.0.1",
+  "description": "A higher level query mechanism for LMDB supporting functional, declarative and RegExp filters without the overhead of an entire database wrapper.",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anywhichway/lmdb-query.git"
+  },
+  "keywords": [
+    "lmdb",
+    "query",
+    "no-sql",
+    "select",
+    "filter",
+    "index"
+  ],
+  "author": "Simon Y. Blackwell",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/anywhichway/lmdb-query/issues"
+  },
+  "homepage": "https://github.com/anywhichway/lmdb-query#readme",
+  "devDependencies": {
+    "lmdb": "^2.7.11"
+  }
+}
