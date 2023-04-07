@@ -4,8 +4,11 @@ const bumpChar = (ch) => {
     return String.fromCharCode(code + 1);
 };
 
-const bump = (value) => {
+const bump = (value,i) => {
     const type = typeof value;
+    if(type==="function" || isRegExp(value)) {
+        throw new TypeError(`[${value}] ${i!==undefined ? 'at index + i' : ''} is a function or RegExp, cannot bump value`)
+    }
     if(value===null) {
         return false;
     }
@@ -14,7 +17,7 @@ const bump = (value) => {
         else return Number.MIN_SAFE_INTEGER;
     }
     if (type === "number") {
-        return value + 0.0000000000000001;
+        return value + Number.EPSILON;
     }
     if (type === "string") {
         for (let i = value.length; i; i--) {
@@ -26,6 +29,27 @@ const bump = (value) => {
         return null;
     }
 };
+
+const isRegExp = (value) => {
+    const type = typeof(value);
+    if(type==="string") {
+        if(value[0] === "/") {
+            const i = value.lastIndexOf("/");
+            if (i > 1) {
+                try {
+                    // if a RegExp, then throw away
+                    new RegExp(value.substring(1, i), value.substring(i + 1));
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            }
+        }
+    } else if(value && type==="object" && value instanceof RegExp) {
+        return true;
+    }
+    return false;
+}
 
 const toRangeKey = (key = [],start) => {
     if(key===undefined) return;
@@ -60,7 +84,20 @@ const toRangeKey = (key = [],start) => {
 
 const ANY = () => true;
 
-function* getRangeWhere(keyMatch, valueMatch) {
+const DONE = -1;
+
+const count = (f,number=1) => {
+   return (value) => {
+        const done = f(value);
+        if(done) {
+            number--;
+            if(number<0) return DONE;
+        }
+        return done;
+    }
+}
+
+function* getRangeWhere(keyMatch, valueMatch,{bumpIndex,count=Infinity}={}) {
     if(valueMatch && typeof(valueMatch)==="object") {
         const entries = Object.entries(valueMatch);
         valueMatch = (value) => {
@@ -68,6 +105,26 @@ function* getRangeWhere(keyMatch, valueMatch) {
                 return false;
             }
             return entries.every(([key,test]) => {
+                if(isRegExp(key)) {
+                    const li = key.lastIndexOf("/");
+                    if (li > 1) {
+                        let regexp;
+                        try {
+                            regexp = new RegExp(
+                                key.substring(1, li),
+                                key.substring(li + 1)
+                            );
+                        } catch (e) {};
+                        if(regexp) {
+                            return Object.keys(value).every((key) => {
+                                if(regexp.test(key)) {
+                                    return typeof(test)==="function" ? test(value[key],key,value) : value[key]===test
+                                }
+                                return true;
+                            })
+                        }
+                    }
+                }
                 return typeof(test)==="function" ? test(value[key],key,value) : value[key]===test
             })
         }
@@ -75,12 +132,13 @@ function* getRangeWhere(keyMatch, valueMatch) {
     let start, end;
     const keyMatchType = typeof(keyMatch);
     if (Array.isArray(keyMatch)) {
+        if(bumpIndex===undefined) bumpIndex = keyMatch.findLastIndex((value) => { const type = typeof(value); return type!=="function" && !isRegExp(value) });
         start = [...keyMatch];
-        end = start.map((value) => bump(value));
+        end = start.map((value,i) => i===bumpIndex ? bump(value,i) : value);
     } else if(keyMatchType==="object" && keyMatch) {
-        start = where.start;
-        end = where.end;
-        if(where.start===undefined && where.end===undefined) {
+        start = keyMatch.start;
+        end = keyMatch.end;
+        if(!getRangeWhere.SILENT && keyMatch.start===undefined && keyMatch.end===undefined) {
             console.warn("keyMatch object has neither `start` or `end`, scanning all database values")
         }
     } else if(keyMatchType!=="function") {
@@ -89,42 +147,61 @@ function* getRangeWhere(keyMatch, valueMatch) {
     const options = {
         start:toRangeKey(start)
     }
-    options.end = toRangeKey(end, options.start);
+    options.end = toRangeKey(end, keyMatch.end ? undefined : options.start);
     if(!options.start) delete options.start;
-    if(!options.end) delete options.end;
+    if(!options.end || options.end.includes(null)) delete options.end;
+    const conditions = [];
+    if(start) conditions.push(start);
+    if(end) conditions.push(end);
+    if(!getRangeWhere.SILENT) {
+        const checkKey = keyMatch?.end || keyMatch?.start || keyMatch
+        if(checkKey) {
+            if (checkKey.some((value) => typeof (value) === "function")) {
+                if (!checkKey.some((value) => typeof (value) === "function" && (value + "").includes("DONE"))) {
+                    console.warn("getRangeWhere does not include a function that returns DONE, this may cause a long scan of the database")
+                }
+            }
+        }
+    }
+
+    let done;
     for (let { key, value } of this.getRange(options)) {
         if ((keyMatchType!=="function" || keyMatch(key)) &&
-            (!valueMatch || valueMatch(value)) &&
-            start.every((part, i) => {
-                const type = typeof part;
-                if (type === "function") return part(key[i]);
-                if (type === "string" && part[0] === "/") {
-                    const li = part.lastIndexOf("/");
-                    if (li > 1) {
-                        try {
-                            return new RegExp(
-                                part.substring(1, li),
-                                part.substring(li + 1)
-                            ).test(key[i]);
-                        } catch (e) {}
+            (!valueMatch || (done = valueMatch(value))) &&
+            (done===DONE || conditions.some((condition) => {
+               return condition.every((part, i) => {
+                    const type = typeof part;
+                    if (type === "function") return done = part(key[i]);
+                    if (type === "string" && part[0] === "/") {
+                        const li = part.lastIndexOf("/");
+                        if (li > 1) {
+                            try {
+                                return new RegExp(
+                                    part.substring(1, li),
+                                    part.substring(li + 1)
+                                ).test(key[i]);
+                            } catch (e) {}
+                        }
                     }
-                }
-                if (part && type === "object") {
-                    if (
-                        part instanceof RegExp &&
-                        typeof key[i] === "string"
-                    ) {
-                        return part.test(key[i]);
+                    if (part && type === "object") {
+                        if (
+                            part instanceof RegExp &&
+                            typeof key[i] === "string"
+                        ) {
+                            return part.test(key[i]);
+                        }
+                        // todo deepEqual?
                     }
-                    // todo deepEqual?
-                }
-                key[i] === part;
-                return true;
-            })
+                    key[i] === part;
+                    return true;
+                })
+            }))
         ) {
+            if(done===DONE) return;
             yield { key, value };
+            if(--count===0) return;
         }
     }
 }
 
-export {getRangeWhere, ANY}
+export {getRangeWhere, ANY, DONE, bump as bumpValue, count}
