@@ -23,7 +23,7 @@ test("normal range",() => {
 })
 test("getRangeWhere",() => {
     // LMDB does not distinguish between "hello" and ["hello"].
-    // Since all keys start with "hello" and not end is specified, the results include all entries
+    // Since all keys start with "hello" and no end is specified, the results include all entries
     const results = [...db.getRangeWhere(["hello"])];
     expect(results.length).toBe(4);
     expect(results[0].key).toBe("hello");

@@ -1,6 +1,6 @@
 {
   "name": "lmdb-query",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A higher level query mechanism for LMDB supporting functional, declarative and RegExp filters without the overhead of an entire database wrapper.",
   "type": "module",
   "main": "index.js",
