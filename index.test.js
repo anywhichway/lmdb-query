@@ -1,5 +1,5 @@
 import {open} from "lmdb";
-import {getRangeWhere,ANY,DONE,count,bumpValue} from "./index.js";
+import {getRangeWhere,ANY,DONE,limit,bumpValue} from "./index.js";
 
 const db = open("test.db");
 db.getRangeWhere = getRangeWhere;
@@ -91,9 +91,9 @@ test("getRangeWhere filter object with function and DONE",() => {
     expect(results[0].key[0]).toBe("hello");
     expect(results[0].value.message).toBe("my world");
 })
-test("getRangeWhere filter object with function and count",() => {
+test("getRangeWhere filter object with function and limit",() => {
     // It stops enumerating after N matches
-    const results = [...db.getRangeWhere(["hello"],count((value) => value.message?.endsWith("world"),2))];
+    const results = [...db.getRangeWhere(["hello"],limit((value) => value.message?.endsWith("world"),2))];
     expect(results.length).toBe(2);
     expect(results[0].key[0]).toBe("hello");
     expect(results[0].value.message).toBe("my world");
@@ -108,10 +108,10 @@ test("getRangeWhere filter object",() => {
     expect(results[0].key[0]).toBe("hello");
     expect(results[0].value.message).toBe("my world");
 })
-test("getRangeWhere filter object with property value test and count",() => {
+test("getRangeWhere filter object with property value test and limit",() => {
     // only yields objects with the message "my world"
     // note this will test only 2 entries with a key starting with "hello"
-    const results = [...db.getRangeWhere(["hello"],{message:(value) => value.endsWith("world")},{count:2})];
+    const results = [...db.getRangeWhere(["hello"],{message:(value) => value.endsWith("world")},{limit:2})];
     expect(results.length).toBe(2);
     expect(results[0].key[0]).toBe("hello");
     expect(results[0].value.message).toBe("my world");

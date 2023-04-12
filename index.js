@@ -86,7 +86,7 @@ const ANY = () => true;
 
 const DONE = -1;
 
-const count = (f,number=1) => {
+const limit = (f,number=1) => {
    return (value) => {
         const done = f(value);
         if(done) {
@@ -97,7 +97,7 @@ const count = (f,number=1) => {
     }
 }
 
-function* getRangeWhere(keyMatch, valueMatch,{bumpIndex,count=Infinity}={}) {
+function* getRangeWhere(keyMatch, valueMatch,{bumpIndex,count,limit=count||Infinity}={}) {
     if(valueMatch && typeof(valueMatch)==="object") {
         const entries = Object.entries(valueMatch);
         valueMatch = (value) => {
@@ -199,9 +199,9 @@ function* getRangeWhere(keyMatch, valueMatch,{bumpIndex,count=Infinity}={}) {
         ) {
             if(done===DONE) return;
             yield { key, value };
-            if(--count===0) return;
+            if(--limit===0) return;
         }
     }
 }
 
-export {getRangeWhere, ANY, DONE, bump as bumpValue, count}
+export {getRangeWhere, ANY, DONE, bump as bumpValue, limit, limit as count}

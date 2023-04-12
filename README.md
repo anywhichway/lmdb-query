@@ -49,7 +49,7 @@ getRangeWhere.call(db,keyMatch,valueMatch);
 
 # API
 
-`function* getRangeWhere(keyMatch: array|function|object, ?valueMatch: function|object)` - returns `{key, value}`
+`function* getRangeWhere(keyMatch: array|function|object, ?valueMatch: function|object)` - yields `{key, value}` pairs.
 
 Warning, the explanation below are a bit dense! See the [examples](#examples) for a better understanding.
 
@@ -207,6 +207,8 @@ test("getRangeWhere filter object with property as regular expression",() => {
 ```
 
 # Change History (Reverse Chronological Order)
+
+2023-04-12 v0.1.2 Added `limit` as an alias for `count` since it is used in `lmdb`. The `count` options are still supported for backwards compatibility, but will be deprecated in a future version.
 
 2023-04-07 v0.1.1 Documentation updates.
 
