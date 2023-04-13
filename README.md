@@ -36,6 +36,12 @@ SELECT age, UPPERCASE(address.city) as city
 FROM PERSON, ADDRESS WHERE PERSON.id = ADDRESS.personId  AND id="person1" AND name IS NOT NULL AND age = 30
 ```
 
+See also:
+
+[LMDB Cluster](https://github.com/anywhichway/lmdb-cluster) - A clustered version of LMDB that supports a REST API with sockets planned.
+
+[LMDB IndexedDB](https://github.com/anywhichway/lmdb-indexeddb) - An IndexedDB wrapper for LMDB that supports the full IndexedDB API.
+
 # Installation
 
 ```javascript
@@ -280,6 +286,8 @@ index.js |   96.15 |    86.17 |   95.83 |   97.35 | 29,44,158,196
 
 
 # Change History (Reverse Chronological Order)
+
+2023-04-14 v1.0.2 Enhanced documentation.
 
 2023-04-13 v1.0.1 NPM dropped README.md, although GitHUb did not. Trying a republish.
 
