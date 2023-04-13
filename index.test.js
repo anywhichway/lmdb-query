@@ -111,7 +111,7 @@ test("getRangeWhere filter object",() => {
 test("getRangeWhere filter object with property value test and limit",() => {
     // only yields objects with the message "my world"
     // note this will test only 2 entries with a key starting with "hello"
-    const results = [...db.getRangeWhere(["hello"],{message:(value) => value.endsWith("world")},{limit:2})];
+    const results = [...db.getRangeWhere(["hello"],{message:(value) => value.endsWith("world")},null,{limit:2})];
     expect(results.length).toBe(2);
     expect(results[0].key[0]).toBe("hello");
     expect(results[0].value.message).toBe("my world");
@@ -130,4 +130,13 @@ test("getRangeWhere filter object with property as regular expression",() => {
     expect(results[1].value.message).toBe("your world");
     expect(results[2].key[0]).toBe("hello");
     expect(results[2].value.message).toBe("other world");
+})
+test("getRangeWhere select portion of object",() => {
+    db.putSync("person",{name:"John",age:30,address:{city:"London",country:"UK"}});
+    let results = [...db.getRangeWhere(["person"],{name:"John"},{age:(value) => value})];
+    expect(results.length).toBe(1);
+    expect(results[0].key).toBe("person");
+    expect(results[0].value.name).toBe(undefined);
+    expect(results[0].value.age).toBe(30);
+    db.removeSync("person");
 })

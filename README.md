@@ -49,7 +49,7 @@ getRangeWhere.call(db,keyMatch,valueMatch);
 
 # API
 
-`function* getRangeWhere(keyMatch: array|function|object, ?valueMatch: function|object)` - yields `{key, value}` pairs.
+`function* getRangeWhere(keyMatch: array|function|object, ?valueMatch: function|object,?select: function|object,?options: object)` - yields `{key, value}` pairs.
 
 Warning, the explanation below are a bit dense! See the [examples](#examples) for a better understanding.
 
@@ -61,9 +61,12 @@ If `keyMatch` is an object, it must satisfy the range specification conditions o
 
 `valueMatch` is optional and is used to filter out entries based on values. If it is a function, the function should return a truthy result for the value of the entry to be yielded or DONE. If it is an object, then the value property in the entry is expected to contain an object and for each entry, (`[property,test]`), in the `valueMatch` object the same property in the database entry value should be equal to `test` or if `test` is a function, calling it as `test(value[property],property,value)` should be truthy for the entry to be yielded. Note, `property` can also be a serialized regular expression. Finally, you can also use the utility function `count` to stop enumeration when a certain number of entries have been yielded or provide `count` as an option to `getRangeWhere`.
 
+`select` is optional and is used to reduce (or rarely increase) the size of yielded values by deleting. modifying, or adding properties. By default, entire values are returned. If `select` is a function if gets the value right before yield and can modify it in any manner chosen. If `select` is an object it behaves similar to `valueMatch` except that the value is not tested for equality if the property is a function, but rather the function is called as `select[property](value[property],property,value)` and the result is used as the value of the property in the yielded value. If the function returns `undefined`, the property is deleted from the yielded value.
+
 When `getRangeWhere` is called with an array it automatically computes an end by copying the start and bumping the last primitive value by one byte. This is not done when `keyMatch` is an object, so if you want to use an object to specify a range, with an end, you must specify the end. The ensures that `getRangeWhere` behaves identically to `getRange` with the exception of support for functional and regular expression matching. For convenience `bumpValue` is exported from the main module. If you provide a start key specification but no end key specification or you do provide an end key specification, and part of either the start or end is a filtering function, that function should return `DONE` if it can determine the key being processed is beyond the desired range; otherwise, a scan of all keys above the first might occur. A warning will be logged to the console if a scan is possible unless `getRangeWhere.SILENT` is set to `true`.
 
-If you wish to provide a broader range, you can pass an options object to `getRangeWhere` with the property `bumpIndex` set to the index of the key component you wish to bump. If you wish to bump the first item, you can pass `bumpIndex: 0`. If you wish to bump the second component, you can pass `bumpIndex: 1` and so on. It is up to you to ensure the item at the index is not a filtering function, a regular expression, or a string that can be coerced into a regular expression. An `TypeError` will be thrown if you try to bump an illegal value.
+
+If you wish to provide a broader range, you can pass an`options` object to `getRangeWhere` with the property `bumpIndex` set to the index of the key component you wish to bump. If you wish to bump the first item, you can pass `bumpIndex: 0`. If you wish to bump the second component, you can pass `bumpIndex: 1` and so on. It is up to you to ensure the item at the index is not a filtering function, a regular expression, or a string that can be coerced into a regular expression. An `TypeError` will be thrown if you try to bump an illegal value.
 
 # Examples
 
@@ -204,9 +207,20 @@ test("getRangeWhere filter object with property as regular expression",() => {
     expect(results[2].key[0]).toBe("hello");
     expect(results[2].value.message).toBe("other world");
 })
+test("getRangeWhere select portion of object",() => {
+    db.putSync("person",{name:"John",age:30,address:{city:"London",country:"UK"}});
+    let results = [...db.getRangeWhere(["person"],{name:"John"},{age:(value) => value})];
+    expect(results.length).toBe(1);
+    expect(results[0].key).toBe("person");
+    expect(results[0].value.name).toBe(undefined);
+    expect(results[0].value.age).toBe(30);
+    db.removeSync("person");
+})
 ```
 
 # Change History (Reverse Chronological Order)
+
+2023-04-12 v0.2.0 BREAKING CHANGE! A third argument `select` was added to support extraction of just the components of an object that are desired.
 
 2023-04-12 v0.1.2 Added `limit` as an alias for `count` since it is used in `lmdb`. The `count` options are still supported for backwards compatibility, but will be deprecated in a future version.
 

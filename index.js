@@ -97,8 +97,48 @@ const limit = (f,number=1) => {
     }
 }
 
-function* getRangeWhere(keyMatch, valueMatch,{bumpIndex,count,limit=count||Infinity}={}) {
-    if(valueMatch && typeof(valueMatch)==="object") {
+const selector = (select,value,key,object) => {
+    const type = typeof(select);
+    if(type==="function") {
+        return select(value,key,object);
+    }
+    if(select && type==="object") {
+        return Object.entries(select).reduce((result,[key,select]) => {
+            if(isRegExp(key)) {
+                const li = key.lastIndexOf("/");
+                if (li > 1) {
+                    let regexp;
+                    try {
+                        regexp = new RegExp(
+                            key.substring(1, li),
+                            key.substring(li + 1)
+                        );
+                    } catch (e) {};
+                    if(regexp) {
+                        return Object.keys(value).reduce((value,key) => {
+                            if(regexp.test(key)) {
+                                const selection = selector(select,value[key],key,value);
+                                if(selection!==undefined) result[key] = selection;
+                            }
+                            return value;
+                        },value);
+                    }
+                }
+            }
+            if(value[key]!==undefined) {
+                const selection = selector(select,value[key],key,value);
+                if(selection!==undefined) result[key] = selection;
+            }
+            return result;
+        },Array.isArray(select) ? [] : {});
+    }
+    if(value===select) return value;
+}
+
+function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>value,{bumpIndex,count,limit=count||Infinity}={}) {
+    valueMatch ||= (value) => value;
+    select ||= (value) => value;
+    if(typeof(valueMatch)==="object") {
         const entries = Object.entries(valueMatch);
         valueMatch = (value) => {
             if(!value || typeof(value)!=="object") {
@@ -167,7 +207,7 @@ function* getRangeWhere(keyMatch, valueMatch,{bumpIndex,count,limit=count||Infin
     let done;
     for (let { key, value } of this.getRange(options)) {
         if ((keyMatchType!=="function" || keyMatch(key)) &&
-            (!valueMatch || (done = valueMatch(value))) &&
+            (done = valueMatch(value)) &&
             (done===DONE || conditions.some((condition) => {
                return condition.every((part, i) => {
                     const type = typeof part;
@@ -198,7 +238,7 @@ function* getRangeWhere(keyMatch, valueMatch,{bumpIndex,count,limit=count||Infin
             }))
         ) {
             if(done===DONE) return;
-            yield { key, value };
+            yield { key, value:selector(select,value) };
             if(--limit===0) return;
         }
     }
