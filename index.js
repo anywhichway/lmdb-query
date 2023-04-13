@@ -33,7 +33,7 @@ const bump = (value,i) => {
 const isRegExp = (value) => {
     const type = typeof(value);
     if(type==="string") {
-        if(value[0] === "/") {
+        if(value[0] === "/" && value.match(/\/.*\/[dgimsuy]+$/)) {
             const i = value.lastIndexOf("/");
             if (i > 1) {
                 try {
@@ -45,13 +45,14 @@ const isRegExp = (value) => {
                 }
             }
         }
+        return false;
     } else if(value && type==="object" && value instanceof RegExp) {
         return true;
     }
     return false;
 }
 
-const toRangeKey = (key = [],start) => {
+const toRangeKey = (key,start) => {
     if(key===undefined) return;
     const rangeKey = [];
     let i = 0;
@@ -61,17 +62,8 @@ const toRangeKey = (key = [],start) => {
         if(value===null) {
             rangeKey.push(null)
         } else if (type === "string") {
-            if(value[0] === "/") {
-                const i = value.lastIndexOf("/");
-                if (i > 1) {
-                    try {
-                        // if a RegExp, then throw away
-                        new RegExp(value.substring(1, i), value.substring(i + 1));
-                        value = null;
-                    } catch (e) {}
-                }
-            }
-            rangeKey.push(value)
+            if(isRegExp(value)) value = null;
+            rangeKey.push(value);
         } else if(!["boolean", "number"].includes(type)) {
             rangeKey.push(null)
         } else {
@@ -82,9 +74,11 @@ const toRangeKey = (key = [],start) => {
     return rangeKey.length>0 ? rangeKey : undefined;
 }
 
-const ANY = () => true;
+const ANY = (value) => value!==undefined ? value : undefined;
+const NULL = (value) => value===null ? true : false;
+const NOTNULL = (value) => value!==null ? value : undefined;
 
-const DONE = -1;
+const DONE = Object.freeze({});
 
 const limit = (f,number=1) => {
    return (value) => {
@@ -97,10 +91,10 @@ const limit = (f,number=1) => {
     }
 }
 
-const selector = (select,value,key,object) => {
+const selector = (select,value,{key,object,root,as=key}={}) => {
     const type = typeof(select);
     if(type==="function") {
-        return select(value,key,object);
+        return select(value,{key,object,root,as});
     }
     if(select && type==="object") {
         return Object.entries(select).reduce((result,[key,select]) => {
@@ -115,18 +109,20 @@ const selector = (select,value,key,object) => {
                         );
                     } catch (e) {};
                     if(regexp) {
-                        return Object.keys(value).reduce((value,key) => {
-                            if(regexp.test(key)) {
-                                const selection = selector(select,value[key],key,value);
-                                if(selection!==undefined) result[key] = selection;
+                        return Object.entries(value).reduce((result,[key,v]) => {
+                            const match = regexp.exec(key);
+                            if(match) {
+                                const as = match[1] || match[0],
+                                    selection = selector(v,value[key],{key,object:value,root:root||=result,as});
+                                if(selection!==undefined) result[as] = selection;
                             }
-                            return value;
-                        },value);
+                            return result;
+                        }, result);
                     }
                 }
             }
             if(value[key]!==undefined) {
-                const selection = selector(select,value[key],key,value);
+                const selection = selector(select,value[key],{key,object:value,root:root||=result,as});
                 if(selection!==undefined) result[key] = selection;
             }
             return result;
@@ -136,6 +132,9 @@ const selector = (select,value,key,object) => {
 }
 
 function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>value,{bumpIndex,count,limit=count||Infinity}={}) {
+    if(bumpIndex!==undefined && typeof(bumpIndex)!=="number") throw new TypeError(`bumpIndex must be a number for getRangeWhere, got ${typeof(bumpIndex)} : ${bumpIndex}`);
+    if(count!==undefined && typeof(count)!=="number") throw new TypeError(`count must be a number for getRangeWhere, got ${typeof(count)} : ${count}`);
+    if(typeof(limit)!=="number") throw new TypeError(`limit must be a number for getRangeWhere, got ${typeof(limit)} : ${limit}`);
     valueMatch ||= (value) => value;
     select ||= (value) => value;
     if(typeof(valueMatch)==="object") {
@@ -194,7 +193,7 @@ function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>valu
     if(start) conditions.push(start);
     if(end) conditions.push(end);
     if(!getRangeWhere.SILENT) {
-        const checkKey = keyMatch?.end || keyMatch?.start || keyMatch
+        const checkKey = keyMatch && typeof(keyMatch)==="object" ? (Array.isArray(keyMatch) ? keyMatch : Object.values(keyMatch)) : null;
         if(checkKey) {
             if (checkKey.some((value) => typeof (value) === "function")) {
                 if (!checkKey.some((value) => typeof (value) === "function" && (value + "").includes("DONE"))) {
@@ -238,10 +237,12 @@ function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>valu
             }))
         ) {
             if(done===DONE) return;
-            yield { key, value:selector(select,value) };
+            value = selector(select,value);
+            if(value===undefined) continue;
+            yield { key, value };
             if(--limit===0) return;
         }
     }
 }
 
-export {getRangeWhere, ANY, DONE, bump as bumpValue, limit, limit as count}
+export {getRangeWhere, ANY, NULL, NOTNULL, DONE, bump as bumpValue, limit, limit as count}

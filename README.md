@@ -1,9 +1,40 @@
 # lmdb-query
-A higher level query mechanism for LMDB supporting functional, declarative and RegExp filters without the overhead of 
-an entire database wrapper.
+A higher level query mechanism for LMDB supporting functional, declarative and RegExp filters without the overhead of an entire database wrapper.
 
-This is BETA software. The library is functionally complete for a v1 release. Edge case and error generating unit tests have not been written. 
-Stress testing and cross-platform testing has not been done.
+Queries can match against keys, key fragments, values and value fragments and change result values or return just a subset of the top level/renamed/moved properties or nested/renamed/moved properties.
+
+For example:
+
+```javascript
+    db.putSync("person1",{name:"John",age:30,address:{city:"Seattle","stateOrProvince":"WA",country:"US"}});
+    db.putSync("person2",{age:30,address:{city:"Seattle","stateOrProvince":"WA",country:"US"}});
+    const results = [...db.getRangeWhere(
+        ["person"], // match key starting with person
+        {name:NOTNULL}, // match object with non-null name
+        { // selected values
+            age:30, // select age, you could modify this also (age) => age >= 21 ? age - 21 : undefined;
+            address:{
+                city(value,{root}) { root.city = value.toUpperCase(); }, // selects upper case city into root object
+                [/.*(state).*/g]:(value) => value, // selects stateProvince as state because of RegExp group match
+                country:ANY
+            }
+        })];
+    // returns [{key:"person1",value:{age:30,city:"SEATTLE",address:{state:"WA",country:"US"}}}]
+    expect(results.length).toBe(1);
+    expect(results[0].key).toBe("person1");
+    expect(results[0].value.name).toBe(undefined);
+    expect(results[0].value.age).toBe(30);
+    expect(results[0].value.city).toBe("SEATTLE");
+    expect(results[0].value.address.state).toBe("WA");
+    expect(results[0].value.address.country).toBe("US");
+```
+
+With the exception of the nested address for state and country, in SQL terms, this query would be:
+
+```sql
+SELECT age, UPPERCASE(address.city) as city
+FROM PERSON, ADDRESS WHERE PERSON.id = ADDRESS.personId  AND id="person1" AND name IS NOT NULL AND age = 30
+```
 
 # Installation
 
@@ -13,19 +44,21 @@ npm install lmdb-query
 
 # Usage
 
-`lmdb-query` exports five things:
+`lmdb-query` exports:
 
 1) a function called `getRangeWhere`, 
 2) a constant `ANY` to support wild card queries,
-3) a constant DONE to support stopping entry enumeration,
-4) a function `count` to support stopping entry enumeration,
-5) a convenience function `bumpValue` to assist with incrementing keys
+3) a constant `NOTNULL` to support non-null queries,
+4) a constant `NULL` to support null queries,
+5) a constant `DONE` to support stopping result enumeration,
+6) a function `limit` to support stopping result enumeration,
+7) a convenience function `bumpValue` to assist with incrementing keys
 
 `getRangeWhere` should be assigned to an open database instance or called with the database instance as its context, i.e. do one of the following:
 
 ```javascript
 import {open} from "lmdb";
-import {getRangeWhere,ANY,DONE,count,bumpValue} from "../index.js";
+import {getRangeWhere,ANY,DONE,limit,bumpValue} from "../index.js";
 const db = open("test");
 db.getRangeWhere = getRangeWhere;
 ```
@@ -33,7 +66,7 @@ db.getRangeWhere = getRangeWhere;
 
 ```javascript
 import {open} from "lmdb";
-import {getRangeWhere,ANY,DONE,count,bumpValue} from "../index.js";
+import {getRangeWhere,ANY,DONE,limit,bumpValue} from "../index.js";
 const db = open("test");
 const query = getRangeWhere.bind(db);
 ```
@@ -42,7 +75,7 @@ or
 
 ```javascript
 import {open} from "lmdb";
-import {getRangeWhere,ANY,DONE,count,bumpValue} from "../index.js";
+import {getRangeWhere,ANY,DONE,limit,bumpValue} from "../index.js";
 const db = open("test");
 getRangeWhere.call(db,keyMatch,valueMatch);
 ```
@@ -59,14 +92,30 @@ If `keyMatch` is a function, a scan of all entries in the database will occur, b
 
 If `keyMatch` is an object, it must satisfy the range specification conditions of LMDB, i.e. it should have a `start` and/or `end`. If it has neither a `start` or `end`, a scan of all entries in the database will occur.
 
-`valueMatch` is optional and is used to filter out entries based on values. If it is a function, the function should return a truthy result for the value of the entry to be yielded or DONE. If it is an object, then the value property in the entry is expected to contain an object and for each entry, (`[property,test]`), in the `valueMatch` object the same property in the database entry value should be equal to `test` or if `test` is a function, calling it as `test(value[property],property,value)` should be truthy for the entry to be yielded. Note, `property` can also be a serialized regular expression. Finally, you can also use the utility function `count` to stop enumeration when a certain number of entries have been yielded or provide `count` as an option to `getRangeWhere`.
+`valueMatch` is optional and is used to filter out entries based on values. If it is a function, the function should return a truthy result for the value of the entry to be yielded or DONE. If it is an object, then the value property in the entry is expected to contain an object and for each entry, (`[property,test]`), in the `valueMatch` object the same property in the database entry value should be equal to `test` or if `test` is a function, calling it as `test(value[property],property,value)` should be truthy for the entry to be yielded. Note, `property` can also be a serialized regular expression. Finally, you can also use the utility function `limit` to stop enumeration when a certain number of entries have been yielded or provide `limit` as an option to `getRangeWhere`.
 
-`select` is optional and is used to reduce (or rarely increase) the size of yielded values by deleting. modifying, or adding properties. By default, entire values are returned. If `select` is a function if gets the value right before yield and can modify it in any manner chosen. If `select` is an object it behaves similar to `valueMatch` except that the value is not tested for equality if the property is a function, but rather the function is called as `select[property](value[property],property,value)` and the result is used as the value of the property in the yielded value. If the function returns `undefined`, the property is deleted from the yielded value.
+`select` is optional and used to reduce (or rarely increase) the size of yielded values by deleting. modifying, or adding properties. By default, entire values are returned. If `select` is a function if gets the value right before yield and can modify it in any manner chosen. If `select` is an object it behaves similar to `valueMatch` except that if the property value is a function it is called as `select[property](object[property],{key,object,root,as})` and the result is used as the value of the property in the yielded value. If the function returns `undefined`, the property is deleted from the yielded value. Otherwise, if the property value does not equal the value of the property in the yielding value, the property is deleted. The options argument provided to selection functions defined on the select object get the current `key`, the `object` being tested, the `root` object (i.e. the value being yielded), a key alias `as` if a regular expression with a selection group was used to match the `key`. Here is an example selection object:
+
+```javascript
+    {
+        age:30, // select age
+        address:{
+            // selects upper case city into root object and drops from address, return value would keep it in address also
+            city(value,{root}) { root.city = value.toUpperCase(); }
+            // selects stateProvince as state with auotmatic alias because of RegExp group match
+            [/.*(state).*/g]:(value) => value,
+            // could also do this to elevate as alias,  [/.*(state).*/g]:(value,{root,as}) => { root[as] = value}, 
+            country:ANY
+        }
+    }
+```
+
 
 When `getRangeWhere` is called with an array it automatically computes an end by copying the start and bumping the last primitive value by one byte. This is not done when `keyMatch` is an object, so if you want to use an object to specify a range, with an end, you must specify the end. The ensures that `getRangeWhere` behaves identically to `getRange` with the exception of support for functional and regular expression matching. For convenience `bumpValue` is exported from the main module. If you provide a start key specification but no end key specification or you do provide an end key specification, and part of either the start or end is a filtering function, that function should return `DONE` if it can determine the key being processed is beyond the desired range; otherwise, a scan of all keys above the first might occur. A warning will be logged to the console if a scan is possible unless `getRangeWhere.SILENT` is set to `true`.
 
+If you wish to provide a broader range, you can pass an`options` object to `getRangeWhere` with the property `bumpIndex` is set to the index of the key component you wish to bump. If you wish to bump the first item, you can pass `bumpIndex: 0`. If you wish to bump the second component, you can pass `bumpIndex: 1` and so on. It is up to you to ensure the item at the index is not a filtering function, a regular expression, or a string that can be coerced into a regular expression. An `TypeError` will be thrown if you try to bump an illegal value.
 
-If you wish to provide a broader range, you can pass an`options` object to `getRangeWhere` with the property `bumpIndex` set to the index of the key component you wish to bump. If you wish to bump the first item, you can pass `bumpIndex: 0`. If you wish to bump the second component, you can pass `bumpIndex: 1` and so on. It is up to you to ensure the item at the index is not a filtering function, a regular expression, or a string that can be coerced into a regular expression. An `TypeError` will be thrown if you try to bump an illegal value.
+***Note***: When you are passing regular expressions as strings, they must include at least one flag so that they can be easily distinguished from regular strings. There may be the rare case when a regular string is treated like a regular expression if you are storing paths as data.
 
 # Examples
 
@@ -74,7 +123,7 @@ The best way to show examples is simply use our test cases:
 
 ```javascript
 import {open} from "lmdb";
-import {getRangeWhere,ANY,DONE,count,bumpValue} from "./index.js";
+import {getRangeWhere,ANY,DONE,limit,bumpValue} from "./index.js";
 
 const db = open("test.db");
 db.getRangeWhere = getRangeWhere;
@@ -166,9 +215,9 @@ test("getRangeWhere filter object with function and DONE",() => {
     expect(results[0].key[0]).toBe("hello");
     expect(results[0].value.message).toBe("my world");
 })
-test("getRangeWhere filter object with function and count",() => {
+test("getRangeWhere filter object with function and limit",() => {
     // Stops enumerating after N matches.
-    const results = [...db.getRangeWhere(["hello"],count((value) => value.message?.endsWith("world"),2))];
+    const results = [...db.getRangeWhere(["hello"],limit((value) => value.message?.endsWith("world"),2))];
     expect(results.length).toBe(2);
     expect(results[0].key[0]).toBe("hello");
     expect(results[0].value.message).toBe("my world");
@@ -183,10 +232,10 @@ test("getRangeWhere filter object",() => {
     expect(results[0].key[0]).toBe("hello");
     expect(results[0].value.message).toBe("my world");
 })
-test("getRangeWhere filter object with property test and count",() => {
+test("getRangeWhere filter object with property test and limit",() => {
     // Only yields objects with the message "my world".
-    // This will yiled only the first 2 entries because `count` is set to 2.
-    const results = [...db.getRangeWhere(["hello"],{message:(value) => value.endsWith("world")},{count:2})];
+    // This will yiled only the first 2 entries because `limit` is set to 2.
+    const results = [...db.getRangeWhere(["hello"],{message:(value) => value.endsWith("world")},{limit:2})];
     expect(results.length).toBe(2);
     expect(results[0].key[0]).toBe("hello");
     expect(results[0].value.message).toBe("my world");
@@ -218,7 +267,21 @@ test("getRangeWhere select portion of object",() => {
 })
 ```
 
+# Testing
+
+Testing is conducted using Jest.
+
+                                               
+File      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+----------|---------|----------|---------|---------|-------------------
+All files |   96.15 |    86.17 |   95.83 |   97.35 |                  
+index.js |   96.15 |    86.17 |   95.83 |   97.35 | 29,44,158,196    
+
+
+
 # Change History (Reverse Chronological Order)
+
+2023-04-13 v1.0.0 Improved documentation. Improved test coverage to over 95%.
 
 2023-04-12 v0.2.0 BREAKING CHANGE! A third argument `select` was added to support extraction of just the components of an object that are desired.
 
