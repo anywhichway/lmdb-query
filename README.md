@@ -281,6 +281,8 @@ index.js |   96.15 |    86.17 |   95.83 |   97.35 | 29,44,158,196
 
 # Change History (Reverse Chronological Order)
 
+2023-04-13 v1.0.1 NPM dropped README.md, although GitHUb did not. Trying a republish.
+
 2023-04-13 v1.0.0 Improved documentation. Improved test coverage to over 95%.
 
 2023-04-12 v0.2.0 BREAKING CHANGE! A third argument `select` was added to support extraction of just the components of an object that are desired.
