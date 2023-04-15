@@ -33,7 +33,7 @@ With the exception of the nested address for state and country, in SQL terms, th
 
 ```sql
 SELECT age, UPPERCASE(address.city) as city
-FROM PERSON, ADDRESS WHERE PERSON.id = ADDRESS.personId  AND id="person1" AND name IS NOT NULL AND age = 30
+FROM PERSON, ADDRESS WHERE PERSON.id = ADDRESS.personId  AND id LIKE "person%" AND name IS NOT NULL AND age = 30
 ```
 
 See also:
@@ -286,6 +286,8 @@ index.js |   96.15 |    86.17 |   95.83 |   97.35 | 29,44,158,196
 
 
 # Change History (Reverse Chronological Order)
+
+2023-04-15 v1.0.3 Enhanced documentation.
 
 2023-04-14 v1.0.2 Enhanced documentation.
 
