@@ -1,13 +1,13 @@
 import {open} from "lmdb";
 import {getRangeWhere,ANY,NULL,NOTNULL,DONE,limit,bumpValue} from "./index.js";
 
-const db = open("test.db");
+const db = open("test.db",{useVersions:true});
 db.getRangeWhere = getRangeWhere;
 db.clearSync()
-db.putSync("hello","world");
-db.putSync(["hello",false], {message:"my world"});
-db.putSync(["hello",true], {message:"your world"});
-db.putSync(["hello",1], {message:"other world"});
+db.putSync("hello","world",1);
+db.putSync(["hello",false], {message:"my world"},1);
+db.putSync(["hello",true], {message:"your world"},1);
+db.putSync(["hello",1], {message:"other world"},1);
 
 test("normal range",() => {
     // LMDB range queries are inclusive of the start key and exclusive of the end key.
@@ -135,7 +135,7 @@ test("getRangeWhere select portion of object",() => {
     db.putSync("person1",{name:"John",age:30,address:{city:"Seattle","stateOrProvince":"WA",country:"US"}});
     db.putSync("person2",{age:30,address:{city:"Seattle","stateOrProvince":"WA",country:"US"}});
     const results = [...db.getRangeWhere(
-        ["person"], // match key starting with person
+        [/person.*/], // match key starting with person
         {name:NOTNULL}, // match object with non-null name
         { // selected values
             age:30, // select age, you could modify this also (age) => age >= 21 ? age - 21 : undefined;
@@ -174,11 +174,6 @@ test("getRangeWhere bump number",() => {
     const results = [...db.getRangeWhere([0],{},null)];
     expect(results.length).toBe(0);
 });
-
-test("getRangeWhere key includes RegExp as string",() => {
-    const results = [...db.getRangeWhere(["/1/g"],null,null)];
-    expect(results.length).toBe(0);
-});
 test("getRangeWhere keyMatch causes scan",() => {
     const results = [...db.getRangeWhere({start:[() =>{}]},null,null)];
     expect(results.length).toBe(0);
@@ -189,7 +184,7 @@ test("getRangeWhere keyMatch causes scan, no start or end",() => {
 });
 test("getRangeWhere RegExp key match",() => {
     const results = [...db.getRangeWhere([/hello/g])];
-    expect(results.length).toBe(3);
+    expect(results.length).toBe(4);
 });
 describe("errors",() => {
     test("getRangeWhere invalid bumpIndex",() => {
@@ -199,5 +194,22 @@ describe("errors",() => {
         expect(() => [...db.getRangeWhere([()=>{}],undefined,undefined,{bumpIndex:0})]).toThrow();
         expect(() => [...db.getRangeWhere([/a/g],undefined,undefined,{bumpIndex:0})]).toThrow();
         expect(() => [...db.getRangeWhere(1)]).toThrow();
+    })
+})
+describe("wide and narrow key strings",() => {
+    db.putSync("book","joe");
+    db.putSync("book1","joe");
+    db.putSync("book2","joe");
+    test("getRangeWhere wide",() => {
+        const results = [...db.getRangeWhere(["book"],undefined,undefined,{wideRangeKeyStrings:true,versions:true})];
+        expect(results.length).toBe(3);
+    })
+    test("getRangeWhere narrow",() => {
+        const results = [...db.getRangeWhere(["book"],undefined,undefined,{ersions:true})];
+        expect(results.length).toBe(1);
+    })
+    test("getRangeWhere like",() => {
+        const results = [...db.getRangeWhere([/book.*/g],undefined,undefined,{ersions:true})];
+        expect(results.length).toBe(3);
     })
 })

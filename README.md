@@ -1,4 +1,7 @@
 # lmdb-query
+
+ALERT: Breaking change from v1.0.3 to v1.1.0. Read [key matching](#key-matching).
+
 A higher level query mechanism for LMDB supporting functional, declarative and RegExp filters without the overhead of an entire database wrapper.
 
 Queries can match against keys, key fragments, values and value fragments and change result values or return just a subset of the top level/renamed/moved properties or nested/renamed/moved properties.
@@ -92,7 +95,9 @@ getRangeWhere.call(db,keyMatch,valueMatch);
 
 Warning, the explanation below are a bit dense! See the [examples](#examples) for a better understanding.
 
-If `keyMatch` is an array, it is used to find all keys that match the array. The array items can be any literals that are valid as LMDB key components, plus functions and regular expressions (or strings that can be converted into regular expressions, i.e. matches the form `\/.*\/[dgimsuy]*` and can be compiled into a Regular Expression without error. The functions and regular expressions are used to test the nature of the key component at the same position as the function or regular expression. The functions should return truthy values for a match and falsy values for no match. Except, if a function returns DONE, enumeration will stop.
+If `keyMatch` is an array, it is used to find all keys lexically starting at the array and ending one byte higher (not inclusive). The array items can be any literals that are valid as LMDB key components, plus functions and regular expressions (or strings that can be converted into regular expressions, i.e. matches the form `\/.*\/[dgimsuy]*` and can be compiled into a Regular Expression without error. The functions and regular expressions are used to test the nature of the key component at the same position as the function or regular expression. The functions should return truthy values for a match and falsy values for no match. Except, if a function returns DONE, enumeration will stop.
+
+Note: the keys ["hello"] and ["hello1"] both match ["hello"] since ["hello1"] is less than ["hellp"] (the one byte higher value). If you want an exact match pass `exactKey:true` in the options to `getRangeWhere`.
 
 If `keyMatch` is a function, a scan of all entries in the database will occur, but only those entries with keys that that result in a truthy value from `keyMatch` when passed as an argument will be yielded. Except, if the function returns `DONE`, enumeration will stop.
 
@@ -116,16 +121,25 @@ If `keyMatch` is an object, it must satisfy the range specification conditions o
     }
 ```
 
+## Key Matching
 
-When `getRangeWhere` is called with an array it automatically computes an end by copying the start and bumping the last primitive value by one byte. This is not done when `keyMatch` is an object, so if you want to use an object to specify a range, with an end, you must specify the end. The ensures that `getRangeWhere` behaves identically to `getRange` with the exception of support for functional and regular expression matching. For convenience `bumpValue` is exported from the main module. If you provide a start key specification but no end key specification or you do provide an end key specification, and part of either the start or end is a filtering function, that function should return `DONE` if it can determine the key being processed is beyond the desired range; otherwise, a scan of all keys above the first might occur. A warning will be logged to the console if a scan is possible unless `getRangeWhere.SILENT` is set to `true`.
+When `getRangeWhere` is called with an array, it uses the array as the `start` after replacing functions and regular expressions and automatically computes an `end` by copying the start and bumping the last primitive value by one ordering point. With the exception of strings, this means by one byte. For strings it means adding one character at the lowest string byte, `\x0` ( `\x000` is reserved by LMDB as a special delimiter). Foe example, `hello` becomes `hello\x0`. In version v1.0.3 and earlier strings also had one byte added. Too frequently this resulted in range results that were unexpectedly large. If you still want this behavior, use the options flag `wideRangeKeyStrings` set to `true`. A better way to match a wide range for the string portion of a key is to use a regular expression. For example `/person.*/g` is the same as `LIKE person%` in SQL and will match any string starting with `person`.
 
-If you wish to provide a broader range, you can pass an`options` object to `getRangeWhere` with the property `bumpIndex` is set to the index of the key component you wish to bump. If you wish to bump the first item, you can pass `bumpIndex: 0`. If you wish to bump the second component, you can pass `bumpIndex: 1` and so on. It is up to you to ensure the item at the index is not a filtering function, a regular expression, or a string that can be coerced into a regular expression. An `TypeError` will be thrown if you try to bump an illegal value.
+For convenience `bumpValue` is exported from the main module.
 
-***Note***: When you are passing regular expressions as strings, they must include at least one flag so that they can be easily distinguished from regular strings. There may be the rare case when a regular string is treated like a regular expression if you are storing paths as data.
+In v1.0.3 and earlier, regular expressions could be passed as strings as key parts and an attempt was made to treat strings that looked like regular expressions as though they were regular expressions. This functionality has been removed for key parts. If regular expressions are represented as strings elsewhere, they must be converted to regular expressions before using them in keys.
+
+If you wish to provide a broader range for an entire key, you can pass an`options` object to `getRangeWhere` with the property `bumpIndex` set to the index of the key component you wish to bump. If you wish to bump the first item, you can pass `bumpIndex: 0`. If you wish to bump the second component, you can pass `bumpIndex: 1` and so on. It is up to you to ensure the item at the index is not a filtering function, a regular expression, or a string that can be coerced into a regular expression. An `TypeError` will be thrown if you try to bump an illegal value.
+
+When `keyMatch` is an object it has optional `start` and `end` properties. The `end` IS NOT inferred, so if you want to use an object to specify a range, with an `end`, you must specify the `end`. The ensures that `getRangeWhere` behaves identically to `getRange` with the exception of support for functional and regular expression matching.
+
+If you provide a `start` key specification but no end key specification or you do provide an end key specification, and part of either the `start` or `end` is a filtering function, that function should return `DONE` if it can determine the key being processed is beyond the desired range; otherwise, a scan of all keys above start might occur. A warning will be logged to the console if a scan is possible unless `getRangeWhere.SILENT` is set to `true`.
+
+Internally, `lmdb-query` replaces functions and regular expressions in key specifications with either `null` or `\x0` respectively. The core LMDB function `getRange` then returns potential matches that are filtered out unless they satisfy the functional or regular expression constraints.
 
 # Examples
 
-The best way to show examples is simply use our test cases:
+The best way to show examples is simply use our test cases, some but not all of which are below.
 
 ```javascript
 import {open} from "lmdb";
@@ -280,12 +294,14 @@ Testing is conducted using Jest.
                                                
 File      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
 ----------|---------|----------|---------|---------|-------------------
-All files |   96.15 |    86.17 |   95.83 |   97.35 |                  
-index.js |   96.15 |    86.17 |   95.83 |   97.35 | 29,44,158,196    
+All files |   90.43 |    80.27 |   89.28 |   94.04 |
+index.js |   90.43 |    80.27 |   89.28 |   94.04 | 30,46,70,87-91,173,212
 
 
 
 # Change History (Reverse Chronological Order)
+
+2023-04-17 v1.1.0 WARNING: Breaking change to key matching for strings. Read (key matching)(#key-matching). Optimized regular expression matching.
 
 2023-04-15 v1.0.3 Enhanced documentation.
 
