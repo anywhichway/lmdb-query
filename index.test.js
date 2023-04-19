@@ -135,7 +135,7 @@ test("getRangeWhere select portion of object",() => {
     db.putSync("person1",{name:"John",age:30,address:{city:"Seattle","stateOrProvince":"WA",country:"US"}});
     db.putSync("person2",{age:30,address:{city:"Seattle","stateOrProvince":"WA",country:"US"}});
     const results = [...db.getRangeWhere(
-        [/person.*/], // match key starting with person
+        [/person.*/g], // match key starting with person
         {name:NOTNULL}, // match object with non-null name
         { // selected values
             age:30, // select age, you could modify this also (age) => age >= 21 ? age - 21 : undefined;

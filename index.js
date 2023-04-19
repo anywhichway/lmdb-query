@@ -83,14 +83,6 @@ const NULL = (value) => value===null ? true : false;
 const NOTNULL = (value) => value!==null ? value : undefined;
 const DONE = Object.freeze({});
 
-const sameKey = (key1,key2) => {
-    if(key1===key2) return true;
-    if(!Array.isArray(key1)) key1 = [key1];
-    if(!Array.isArray(key2)) key2 = [key2];
-    if(key1.length===key2.length && key1.every((item,i) => key2[i]===item)) return true;
-    return DONE;
-}
-
 const limit = (f,number=1) => {
    return (value) => {
         const done = f(value);

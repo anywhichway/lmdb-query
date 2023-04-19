@@ -12,7 +12,7 @@ For example:
     db.putSync("person1",{name:"John",age:30,address:{city:"Seattle","stateOrProvince":"WA",country:"US"}});
     db.putSync("person2",{age:30,address:{city:"Seattle","stateOrProvince":"WA",country:"US"}});
     const results = [...db.getRangeWhere(
-        ["person"], // match key starting with person
+        [/person.*/g], // match key starting with person
         {name:NOTNULL}, // match object with non-null name
         { // selected values
             age:30, // select age, you could modify this also (age) => age >= 21 ? age - 21 : undefined;
@@ -294,12 +294,13 @@ Testing is conducted using Jest.
                                                
 File      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
 ----------|---------|----------|---------|---------|-------------------
-All files |   90.43 |    80.27 |   89.28 |   94.04 |
-index.js |   90.43 |    80.27 |   89.28 |   94.04 | 30,46,70,87-91,173,212
-
+All files |   94.94 |    84.13 |   96.15 |   96.91 |
+index.js |   94.94 |    84.13 |   96.15 |   96.91 | 30,46,70,165,204
 
 
 # Change History (Reverse Chronological Order)
+
+2023-04-17 v1.1.1 Enhanced documentation. Adjusted unit tests.
 
 2023-04-17 v1.1.0 WARNING: Breaking change to key matching for strings. Read (key matching)(#key-matching). Optimized regular expression matching.
 
