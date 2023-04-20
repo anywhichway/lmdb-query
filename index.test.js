@@ -1,14 +1,18 @@
 import {open} from "lmdb";
-import {getRangeWhere,ANY,NULL,NOTNULL,DONE,limit,bumpValue} from "./index.js";
+import {withExtensions,getRangeWhere,ANY,NULL,NOTNULL,DONE,limit,bumpValue} from "./index.js";
 
-const db = open("test.db",{useVersions:true});
-db.getRangeWhere = getRangeWhere;
+const db = withExtensions(open("test.db",{useVersions:true}),{getRangeWhere}),
+    child = db.openDB("child");
 db.clearSync()
 db.putSync("hello","world",1);
 db.putSync(["hello",false], {message:"my world"},1);
 db.putSync(["hello",true], {message:"your world"},1);
 db.putSync(["hello",1], {message:"other world"},1);
 
+test("extended",() => {
+    expect(typeof(db.getRangeWhere)).toEqual("function");
+    expect(typeof(child.getRangeWhere)).toEqual("function");
+})
 test("normal range",() => {
     // LMDB range queries are inclusive of the start key and exclusive of the end key.
     // Since Number.EPSILON is greater than `true` but less than `1`, it will not match "other world"

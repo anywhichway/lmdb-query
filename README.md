@@ -62,32 +62,19 @@ npm install lmdb-query
 5) a constant `DONE` to support stopping result enumeration,
 6) a function `limit` to support stopping result enumeration,
 7) a convenience function `bumpValue` to assist with incrementing keys
+8) a convenience function `withExtensions` that is used to extend an LMDB database to support `getRangeWhere`
 
-`getRangeWhere` should be assigned to an open database instance or called with the database instance as its context, i.e. do one of the following:
-
-```javascript
-import {open} from "lmdb";
-import {getRangeWhere,ANY,DONE,limit,bumpValue} from "../index.js";
-const db = open("test");
-db.getRangeWhere = getRangeWhere;
-```
- or
+`getRangeWhere` should be assigned to an open database instance or called with the database instance as its context. Te best approach is:
 
 ```javascript
 import {open} from "lmdb";
-import {getRangeWhere,ANY,DONE,limit,bumpValue} from "../index.js";
-const db = open("test");
-const query = getRangeWhere.bind(db);
+import {getRangeWhere,withExtensions} from "lmdb-query";
+const db = withExtensions(open("test"),{getRangeWhere});
 ```
 
-or
+This adds `getRangeWhere` to the database and any child databases it opens.
 
-```javascript
-import {open} from "lmdb";
-import {getRangeWhere,ANY,DONE,limit,bumpValue} from "../index.js";
-const db = open("test");
-getRangeWhere.call(db,keyMatch,valueMatch);
-```
+You could also assign `getRangeWhere` directly to a database yourself or call it with a database as its context.
 
 # API
 
@@ -121,9 +108,13 @@ If `keyMatch` is an object, it must satisfy the range specification conditions o
     }
 ```
 
+`function withExtensions(db:lmdbDatabase,extenstions:object) - return lmdbDatabase`
+
+Extends an LMDB database and any child databases it opens to have the `extensions` provided as well as any child databases it opens. This utility is common to other `lmdb` extensions like `lmdb-patch`, `lmdb-copy`, `lmdb-move`.
+
 ## Key Matching
 
-When `getRangeWhere` is called with an array, it uses the array as the `start` after replacing functions and regular expressions and automatically computes an `end` by copying the start and bumping the last primitive value by one ordering point. With the exception of strings, this means by one byte. For strings it means adding one character at the lowest string byte, `\x0` ( `\x000` is reserved by LMDB as a special delimiter). Foe example, `hello` becomes `hello\x0`. In version v1.0.3 and earlier strings also had one byte added. Too frequently this resulted in range results that were unexpectedly large. If you still want this behavior, use the options flag `wideRangeKeyStrings` set to `true`. A better way to match a wide range for the string portion of a key is to use a regular expression. For example `/person.*/g` is the same as `LIKE person%` in SQL and will match any string starting with `person`.
+When `getRangeWhere` is called with an array, it uses the array as the `start` after replacing functions and regular expressions and automatically computes an `end` by copying the start and bumping the last primitive value by one ordering point. With the exception of strings, this means by one byte. For strings it means adding one character at the lowest string byte, `\x0` ( `\x00` is reserved by LMDB as a special delimiter). For example, `hello` becomes `hello\x0`. In version v1.0.3 and earlier, strings also had one byte added. Too frequently, this resulted in range results that were unexpectedly large. If you still want this behavior, use the options flag `wideRangeKeyStrings` set to `true`. A better way to match a wide range for the string portion of a key is to use a regular expression. For example `/person.*/g` is the same as `LIKE person%` in SQL and will match any string starting with `person`.
 
 For convenience `bumpValue` is exported from the main module.
 
@@ -299,6 +290,8 @@ index.js |   94.94 |    84.13 |   96.15 |   96.91 | 30,46,70,165,204
 
 
 # Change History (Reverse Chronological Order)
+
+2023-04-19 v1.1.2 Simplified database augmentation by adding `withExtensions` from `lmdb-extend`.
 
 2023-04-17 v1.1.1 Enhanced documentation. Adjusted unit tests.
 

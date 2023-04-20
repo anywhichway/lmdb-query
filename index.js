@@ -255,4 +255,6 @@ function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>valu
     }
 }
 
-export {getRangeWhere, ANY, NULL, NOTNULL, DONE, bump as bumpValue, limit, limit as count}
+import {withExtensions} from "lmdb-extend";
+
+export {getRangeWhere, ANY, NULL, NOTNULL, DONE, bump as bumpValue, limit, limit as count,withExtensions}
