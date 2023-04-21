@@ -196,7 +196,7 @@ describe("errors",() => {
         expect(() => [...db.getRangeWhere(1,undefined,undefined,{count:"a"})]).toThrow();
         expect(() => [...db.getRangeWhere(1,undefined,undefined,{limit:"a"})]).toThrow();
         expect(() => [...db.getRangeWhere([()=>{}],undefined,undefined,{bumpIndex:0})]).toThrow();
-        expect(() => [...db.getRangeWhere([/a/g],undefined,undefined,{bumpIndex:0})]).toThrow();
+        expect(() => [...db.getRangeWhere([/a/g],undefined,undefined,{bumpIndex:1})]).toThrow();
         expect(() => [...db.getRangeWhere(1)]).toThrow();
     })
 })

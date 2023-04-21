@@ -78,13 +78,11 @@ You could also assign `getRangeWhere` directly to a database yourself or call it
 
 # API
 
-`function* getRangeWhere(keyMatch: array|function|object, ?valueMatch: function|object,?select: function|object,?options: object)` - yields `{key, value}` pairs.
+## * getRangeWhere(keyMatch: array|function|object, ?valueMatch: function|object,?select: function|object,?options: object) - yields `{key, value}` pairs.
 
 Warning, the explanation below are a bit dense! See the [examples](#examples) for a better understanding.
 
 If `keyMatch` is an array, it is used to find all keys lexically starting at the array and ending one byte higher (not inclusive). The array items can be any literals that are valid as LMDB key components, plus functions and regular expressions (or strings that can be converted into regular expressions, i.e. matches the form `\/.*\/[dgimsuy]*` and can be compiled into a Regular Expression without error. The functions and regular expressions are used to test the nature of the key component at the same position as the function or regular expression. The functions should return truthy values for a match and falsy values for no match. Except, if a function returns DONE, enumeration will stop.
-
-Note: the keys ["hello"] and ["hello1"] both match ["hello"] since ["hello1"] is less than ["hellp"] (the one byte higher value). If you want an exact match pass `exactKey:true` in the options to `getRangeWhere`.
 
 If `keyMatch` is a function, a scan of all entries in the database will occur, but only those entries with keys that that result in a truthy value from `keyMatch` when passed as an argument will be yielded. Except, if the function returns `DONE`, enumeration will stop.
 
@@ -108,7 +106,7 @@ If `keyMatch` is an object, it must satisfy the range specification conditions o
     }
 ```
 
-`function withExtensions(db:lmdbDatabase,extenstions:object) - return lmdbDatabase`
+## withExtensions(db:lmdbDatabase,extenstions:object) - returns lmdbDatabase`
 
 Extends an LMDB database and any child databases it opens to have the `extensions` provided as well as any child databases it opens. This utility is common to other `lmdb` extensions like `lmdb-patch`, `lmdb-copy`, `lmdb-move`.
 
@@ -290,6 +288,8 @@ index.js |   94.94 |    84.13 |   96.15 |   96.91 | 30,46,70,165,204
 
 
 # Change History (Reverse Chronological Order)
+
+2023-04-21 v1.1.3 Automatically created range ends were at times too restrictive, relaxed them a little. Code walkthrough also found a bug with RegExp matching which was fixed.
 
 2023-04-19 v1.1.2 Simplified database augmentation by adding `withExtensions` from `lmdb-extend`.
 
