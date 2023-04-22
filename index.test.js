@@ -112,6 +112,13 @@ test("getRangeWhere filter object",() => {
     expect(results[0].key[0]).toBe("hello");
     expect(results[0].value.message).toBe("my world");
 })
+test("getRangeWhere filter nested object",() => {
+    db.putSync("nested",{address:{city:"New York",zip:{code:"10001",plus4:"1234"}}});
+    const results = [...db.getRangeWhere(["nested"],{address: {zip:{code:"10001"}}})];
+    expect(results.length).toBe(1);
+    expect(results[0].key).toBe("nested");
+    expect(results[0].value).toEqual({address:{city:"New York",zip:{code:"10001",plus4:"1234"}}});
+})
 test("getRangeWhere filter object with property value test and limit",() => {
     // only yields objects with the message "my world"
     // note this will test only 2 entries with a key starting with "hello"

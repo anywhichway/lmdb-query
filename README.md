@@ -41,13 +41,15 @@ FROM PERSON, ADDRESS WHERE PERSON.id = ADDRESS.personId  AND id LIKE "person%" A
 
 See also:
 
+[LMDB Index](https://github.com/anywhichway/lmdb-index) - Provides indexing and index queries for objects inserted into LMDB databases
+
 [LMDB Cluster](https://github.com/anywhichway/lmdb-cluster) - A clustered version of LMDB that supports a REST API with sockets planned.
 
 [LMDB IndexedDB](https://github.com/anywhichway/lmdb-indexeddb) - An IndexedDB wrapper for LMDB that supports the full IndexedDB API.
 
 # Installation
 
-```javascript
+```bash
 npm install lmdb-query
 ```
 
@@ -82,15 +84,25 @@ You could also assign `getRangeWhere` directly to a database yourself or call it
 
 Warning, the explanation below are a bit dense! See the [examples](#examples) for a better understanding.
 
-If `keyMatch` is an array, it is used to find all keys lexically starting at the array and ending one byte higher (not inclusive). The array items can be any literals that are valid as LMDB key components, plus functions and regular expressions (or strings that can be converted into regular expressions, i.e. matches the form `\/.*\/[dgimsuy]*` and can be compiled into a Regular Expression without error. The functions and regular expressions are used to test the nature of the key component at the same position as the function or regular expression. The functions should return truthy values for a match and falsy values for no match. Except, if a function returns DONE, enumeration will stop.
+### keyMatch
 
-If `keyMatch` is a function, a scan of all entries in the database will occur, but only those entries with keys that that result in a truthy value from `keyMatch` when passed as an argument will be yielded. Except, if the function returns `DONE`, enumeration will stop.
+- If `keyMatch` is an array, it is used to find all keys lexically starting at the array and ending one byte higher (not inclusive). The array items can be any literals that are valid as LMDB key components, plus functions and regular expressions (or strings that can be converted into regular expressions, i.e. matches the form `\/.*\/[dgimsuy]*` and can be compiled into a Regular Expression without error. The functions and regular expressions are used to test the nature of the key component at the same position as the function or regular expression. The functions should return truthy values for a match and falsy values for no match. Except, if a function returns DONE, enumeration will stop. 
+- If `keyMatch` is a function, a scan of all entries in the database will occur, but only those entries with keys that that result in a truthy value from `keyMatch` when passed as an argument will be yielded. Except, if the function returns `DONE`, enumeration will stop. 
+- If `keyMatch` is an object, it must satisfy the range specification conditions of LMDB, i.e. it should have a `start` and/or `end`. If it has neither a `start` or `end`, a scan of all entries in the database will occur.
 
-If `keyMatch` is an object, it must satisfy the range specification conditions of LMDB, i.e. it should have a `start` and/or `end`. If it has neither a `start` or `end`, a scan of all entries in the database will occur.
+### valueMatch
 
-`valueMatch` is optional and is used to filter out entries based on values. If it is a function, the function should return a truthy result for the value of the entry to be yielded or DONE. If it is an object, then the value property in the entry is expected to contain an object and for each entry, (`[property,test]`), in the `valueMatch` object the same property in the database entry value should be equal to `test` or if `test` is a function, calling it as `test(value[property],property,value)` should be truthy for the entry to be yielded. Note, `property` can also be a serialized regular expression. Finally, you can also use the utility function `limit` to stop enumeration when a certain number of entries have been yielded or provide `limit` as an option to `getRangeWhere`.
+`valueMatch` is optional and is used to filter out entries based on values. 
 
-`select` is optional and used to reduce (or rarely increase) the size of yielded values by deleting. modifying, or adding properties. By default, entire values are returned. If `select` is a function if gets the value right before yield and can modify it in any manner chosen. If `select` is an object it behaves similar to `valueMatch` except that if the property value is a function it is called as `select[property](object[property],{key,object,root,as})` and the result is used as the value of the property in the yielded value. If the function returns `undefined`, the property is deleted from the yielded value. Otherwise, if the property value does not equal the value of the property in the yielding value, the property is deleted. The options argument provided to selection functions defined on the select object get the current `key`, the `object` being tested, the `root` object (i.e. the value being yielded), a key alias `as` if a regular expression with a selection group was used to match the `key`. Here is an example selection object:
+- If `valueMatch` is a function, the function should return a truthy result for the value of the entry to be yielded or DONE. 
+- If `valueMatch` is an object, then the value property in the entry is expected to contain an object and for each entry, (`[property,test]`), in the `valueMatch` object the same property in the database entry value should be equal to `test`; or if `test` is an object, match recursively; or if `test` is a function, calling it as `test(value[property],property,value)` should be truthy for the entry to be yielded. Note, `property` can also be a serialized regular expression. You can also use the utility function `limit` to stop enumeration when a certain number of entries have been yielded or provide `limit` as an option to `getRangeWhere`.
+
+### select
+
+`select` is optional and used to reduce (or rarely increase) the size of yielded values by deleting. modifying, or adding properties. By default, entire values are returned. 
+
+- If `select` is a function if gets the value right before yield and can modify it in any manner chosen. 
+- If `select` is an object it behaves similar to `valueMatch` except that if the property value is a function it is called as `select[property](object[property],{key,object,root,as}=options)` and the result is used as the value of the property in the yielded value. If the function returns `undefined`, the property is deleted from the yielded value. Otherwise, if the property value does not equal the value of the property in the yielding value, the property is deleted. The `options` argument provided to selection functions defined on the select object get the current `key`, the `object` being tested, the `root` object (i.e. the value being yielded), a key alias `as` if a regular expression with a selection group was used to match the `key`. Here is an example selection object:
 
 ```javascript
     {
@@ -108,7 +120,7 @@ If `keyMatch` is an object, it must satisfy the range specification conditions o
 
 ## withExtensions(db:lmdbDatabase,extenstions:object) - returns lmdbDatabase`
 
-Extends an LMDB database and any child databases it opens to have the `extensions` provided as well as any child databases it opens. This utility is common to other `lmdb` extensions like `lmdb-patch`, `lmdb-copy`, `lmdb-move`.
+Extends an LMDB database and any child databases it opens to have the `extensions` provided as well as any child databases it opens. This utility is common to other `lmdb` extensions like `lmdb-patch`, `lmdb-copy`, `lmdb-move`, `lmdb-index`.
 
 ## Key Matching
 
@@ -283,11 +295,13 @@ Testing is conducted using Jest.
                                                
 File      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
 ----------|---------|----------|---------|---------|-------------------
-All files |   94.94 |    84.13 |   96.15 |   96.91 |
-index.js |   94.94 |    84.13 |   96.15 |   96.91 | 30,46,70,165,204
+All files |   92.66 |    80.88 |   96.29 |   94.82 |
+index.js |   92.66 |    80.88 |   96.29 |   94.82 | 10,13,30,46,156-159,188,219
 
 
 # Change History (Reverse Chronological Order)
+
+2023-04-22 v1.1.4 Enhanced documentation. Added support for nested objects for `valueMatch`. Now exporting `matchPattern` for use by other `lmdb` libraries. Not documented for use by general developers.
 
 2023-04-21 v1.1.3 Automatically created range ends were at times too restrictive, relaxed them a little. Code walkthrough also found a bug with RegExp matching which was fixed.
 

@@ -135,6 +135,40 @@ const selector = (select,value,{key,object,root,as=key}={}) => {
     if(value===select) return value;
 }
 
+const matchPattern = (value,pattern) => {
+    if(value===pattern) return true;
+    if(!value || typeof(value)!=="object") return false;
+    return Object.entries(pattern).every(([key,test]) => {
+        if(isRegExp(key)) {
+            const li = key.lastIndexOf("/");
+            if (li > 1) {
+                let regexp;
+                try {
+                    regexp = new RegExp(
+                        key.substring(1, li),
+                        key.substring(li + 1)
+                    );
+                } catch (e) {};
+                if(regexp) {
+                    return Object.keys(value).every((key) => {
+                        if(regexp.test(key)) {
+                            const type = typeof(test);
+                            if(type==="function") return test(value[key],key,value);
+                            if(test && type==="object") return matchPattern(value[key],test);
+                            return value[key]===test
+                        }
+                        return true;
+                    })
+                }
+            }
+        }
+        const type = typeof(test);
+        if(type==="function") return test(value[key],key,value);
+        if(test && type==="object") return matchPattern(value[key],test);
+        return value[key]===test
+    })
+}
+
 function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>value,{wideRangeKeyStrings,versions,offset,bumpIndex,count,limit=count||Infinity}={}) {
     if(bumpIndex!==undefined && typeof(bumpIndex)!=="number") throw new TypeError(`bumpIndex must be a number for getRangeWhere, got ${typeof(bumpIndex)} : ${bumpIndex}`);
     if(count!==undefined && typeof(count)!=="number") throw new TypeError(`count must be a number for getRangeWhere, got ${typeof(count)} : ${count}`);
@@ -142,35 +176,8 @@ function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>valu
     valueMatch ||= (value) => value;
     select ||= (value) => value;
     if(typeof(valueMatch)==="object") {
-        const entries = Object.entries(valueMatch);
-        valueMatch = (value) => {
-            if(!value || typeof(value)!=="object") {
-                return false;
-            }
-            return entries.every(([key,test]) => {
-                if(isRegExp(key)) {
-                    const li = key.lastIndexOf("/");
-                    if (li > 1) {
-                        let regexp;
-                        try {
-                            regexp = new RegExp(
-                                key.substring(1, li),
-                                key.substring(li + 1)
-                            );
-                        } catch (e) {};
-                        if(regexp) {
-                            return Object.keys(value).every((key) => {
-                                if(regexp.test(key)) {
-                                    return typeof(test)==="function" ? test(value[key],key,value) : value[key]===test
-                                }
-                                return true;
-                            })
-                        }
-                    }
-                }
-                return typeof(test)==="function" ? test(value[key],key,value) : value[key]===test
-            })
-        }
+        const pattern = valueMatch;
+        valueMatch = (value) => matchPattern(value,pattern);
     }
     let start, end, optionEnd;
     const keyMatchType = typeof(keyMatch);
@@ -255,4 +262,4 @@ function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>valu
 
 import {withExtensions} from "lmdb-extend";
 
-export {getRangeWhere, ANY, NULL, NOTNULL, DONE, bump as bumpValue, limit, limit as count,withExtensions}
+export {getRangeWhere, ANY, NULL, NOTNULL, DONE, bump as bumpValue, limit, limit as count,withExtensions, matchPattern}
