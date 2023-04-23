@@ -4,7 +4,7 @@ const bumpChar = (ch) => {
     return String.fromCharCode(code + 1);
 };
 
-const bump = (value,i,wideRangeKeyStrings) => {
+const bumper = (value,i,wideRangeKeyStrings) => {
     const type = typeof value;
     if(type==="function" || isRegExp(value)) {
         throw new TypeError(`[${value}] ${i!==undefined ? 'at index + i' : ''} is a function or RegExp, cannot bump value`)
@@ -54,7 +54,7 @@ const isRegExp = (value) => {
     return false;
 }
 
-const toRangeKey = (key,start,breakAtNull) => {
+const toRangeKey = (key,start,end) => {
     if(key===undefined) return;
     const rangeKey = [];
     let i = 0;
@@ -62,15 +62,18 @@ const toRangeKey = (key,start,breakAtNull) => {
         if (start && (start[i] == null || isRegExp(start[i]))) break;
         const type = typeof value;
         if (value === null) {
-            if(breakAtNull) break;
             rangeKey.push(null)
         } else if(isRegExp(value)) {
-            rangeKey.push(String.fromCharCode(1))
+            if(end) rangeKey.push(String.fromCharCode(65535))
+            else rangeKey.push(String.fromCharCode(1))
         } else if (type === "string") {
             rangeKey.push(value);
-        }  else if(!["boolean", "number"].includes(type)) {
-            if(breakAtNull) break;
-            rangeKey.push(null)
+        }  else if(type==="function") {
+            if(end) rangeKey.push(String.fromCharCode(65535))
+            else rangeKey.push(null)
+        } else if(!["boolean", "number"].includes(type)) {
+            if(end) rangeKey.push(String.fromCharCode(65535))
+            else rangeKey.push(null)
         } else {
             rangeKey.push(value);
         }
@@ -169,10 +172,9 @@ const matchPattern = (value,pattern) => {
     })
 }
 
-function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>value,{wideRangeKeyStrings,versions,offset,bumpIndex,count,limit=count||Infinity}={}) {
+function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>value,{wideRangeKeyStrings,versions,offset,bumpIndex,bump=bumper,limit=Infinity}={}) {
     if(bumpIndex!==undefined && typeof(bumpIndex)!=="number") throw new TypeError(`bumpIndex must be a number for getRangeWhere, got ${typeof(bumpIndex)} : ${bumpIndex}`);
-    if(count!==undefined && typeof(count)!=="number") throw new TypeError(`count must be a number for getRangeWhere, got ${typeof(count)} : ${count}`);
-    if(typeof(limit)!=="number") throw new TypeError(`limit must be a number for getRangeWhere, got ${typeof(limit)} : ${limit}`);
+    if(limit && typeof(limit)!=="number") throw new TypeError(`limit must be a number for getRangeWhere, got ${typeof(limit)} : ${limit}`);
     valueMatch ||= (value) => value;
     select ||= (value) => value;
     if(typeof(valueMatch)==="object") {
@@ -186,7 +188,7 @@ function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>valu
         optionEnd = toRangeKey(keyMatch,keyMatch,true);
         if(optionEnd) {
             if(bumpIndex===undefined) bumpIndex = optionEnd.findLastIndex((value) => { const type = typeof(value); return type!=="function" && !isRegExp(value) });
-            else if(bumpIndex>optionEnd.length) throw new RangeError(`bumpIndex ${bumpIndex} is greater than the length,  ${optionEnd.length}, of the keyMatch array after functions and RegExp are removed`);
+            else if(bumpIndex>=optionEnd.length) throw new RangeError(`bumpIndex ${bumpIndex} is >= the length,  ${optionEnd.length}`);
             optionEnd = optionEnd.map((value,i) => i===bumpIndex ? bump(value,i,wideRangeKeyStrings) : value);
         } else if(bumpIndex!==undefined) {
             throw new RangeError(`bumpIndex ${bumpIndex} is greater than the length, 0, of the keyMatch array after functions and RegExp are removed`);
@@ -194,7 +196,7 @@ function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>valu
     } else if(keyMatchType==="object" && keyMatch) {
         start = keyMatch.start;
         end = keyMatch.end;
-        optionEnd = toRangeKey(keyMatch.end,keyMatch.end||keyMatch.start);
+        optionEnd = toRangeKey(keyMatch.end,keyMatch.end||keyMatch.start,true);
         if(!getRangeWhere.SILENT && keyMatch.start===undefined && keyMatch.end===undefined) {
             console.warn("keyMatch object has neither `start` or `end`, scanning all database values")
         }
@@ -208,7 +210,7 @@ function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>valu
     if(versions) options.versions = true;
     //options.end = toRangeKey(end, keyMatch.end ? undefined : options.start);
     if(!options.start) delete options.start;
-    if(!options.end || options.end.includes(null)) delete options.end;
+    if(!options.end) delete options.end;
     const conditions = [];
     if(start) conditions.push(start);
     if(end) conditions.push(end);
@@ -262,4 +264,4 @@ function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>valu
 
 import {withExtensions} from "lmdb-extend";
 
-export {getRangeWhere, ANY, NULL, NOTNULL, DONE, bump as bumpValue, limit, limit as count,withExtensions, matchPattern}
+export {getRangeWhere, ANY, NULL, NOTNULL, DONE, bumper as bumpValue, limit, limit as count,withExtensions, matchPattern}

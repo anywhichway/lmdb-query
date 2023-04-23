@@ -295,11 +295,14 @@ Testing is conducted using Jest.
                                                
 File      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
 ----------|---------|----------|---------|---------|-------------------
-All files |   92.66 |    80.88 |   96.29 |   94.82 |
-index.js |   92.66 |    80.88 |   96.29 |   94.82 | 10,13,30,46,156-159,188,219
+All files |   91.89 |    80.53 |   96.29 |   94.35 |
+index.js |   91.89 |    80.53 |   96.29 |   94.35 | 10,13,30,46,75-76,160-163,222
+
 
 
 # Change History (Reverse Chronological Order)
+
+2023-04-23 v1.2.0 Fully deprecated `count`. Made adjustments to better support index queries on top of key queries.
 
 2023-04-22 v1.1.4 Enhanced documentation. Added support for nested objects for `valueMatch`. Now exporting `matchPattern` for use by other `lmdb` libraries. Not documented for use by general developers.
 
