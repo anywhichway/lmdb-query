@@ -78,26 +78,26 @@ This adds `getRangeWhere` to the database and any child databases it opens.
 
 You could also assign `getRangeWhere` directly to a database yourself or call it with a database as its context.
 
-# API
+## API
 
-## * getRangeWhere(keyMatch: array|function|object, ?valueMatch: function|object,?select: function|object,?options: object) - yields `{key, value}` pairs.
+### * getRangeWhere(keyMatch: array|function|object, ?valueMatch: function|object,?select: function|object,?options: object) - yields `{key, value}` pairs.
 
-Warning, the explanation below are a bit dense! See the [examples](#examples) for a better understanding.
+Warning, the explanations below are a bit dense! See the [examples](#examples) for a better understanding.
 
-### keyMatch
+#### keyMatch
 
-- If `keyMatch` is an array, it is used to find all keys lexically starting at the array and ending one byte higher (not inclusive). The array items can be any literals that are valid as LMDB key components, plus functions and regular expressions (or strings that can be converted into regular expressions, i.e. matches the form `\/.*\/[dgimsuy]*` and can be compiled into a Regular Expression without error. The functions and regular expressions are used to test the nature of the key component at the same position as the function or regular expression. The functions should return truthy values for a match and falsy values for no match. Except, if a function returns DONE, enumeration will stop. 
+- If `keyMatch` is an array, it is used to find all keys lexically starting at the array and ending one byte higher (not inclusive). The array items can be any literals that are valid as LMDB key components, plus functions and regular expressions or strings that can be converted into regular expressions, i.e. strings matching the form `\/.*\/[dgimsuy]*` that can be compiled into a Regular Expression without error. The functions and regular expressions are used to test the nature of the key component at the same position as the function or regular expression. The functions should return truthy values for a match and falsy values for no match. Except, if a function returns DONE, enumeration will stop. 
 - If `keyMatch` is a function, a scan of all entries in the database will occur, but only those entries with keys that that result in a truthy value from `keyMatch` when passed as an argument will be yielded. Except, if the function returns `DONE`, enumeration will stop. 
 - If `keyMatch` is an object, it must satisfy the range specification conditions of LMDB, i.e. it should have a `start` and/or `end`. If it has neither a `start` or `end`, a scan of all entries in the database will occur.
 
-### valueMatch
+#### valueMatch
 
 `valueMatch` is optional and is used to filter out entries based on values. 
 
 - If `valueMatch` is a function, the function should return a truthy result for the value of the entry to be yielded or DONE. 
 - If `valueMatch` is an object, then the value property in the entry is expected to contain an object and for each entry, (`[property,test]`), in the `valueMatch` object the same property in the database entry value should be equal to `test`; or if `test` is an object, match recursively; or if `test` is a function, calling it as `test(value[property],property,value)` should be truthy for the entry to be yielded. Note, `property` can also be a serialized regular expression. You can also use the utility function `limit` to stop enumeration when a certain number of entries have been yielded or provide `limit` as an option to `getRangeWhere`.
 
-### select
+#### select
 
 `select` is optional and used to reduce (or rarely increase) the size of yielded values by deleting. modifying, or adding properties. By default, entire values are returned. 
 
@@ -118,11 +118,11 @@ Warning, the explanation below are a bit dense! See the [examples](#examples) fo
     }
 ```
 
-## withExtensions(db:lmdbDatabase,extenstions:object) - returns lmdbDatabase`
+### withExtensions(db:lmdbDatabase,extenstions:object) - returns lmdbDatabase`
 
 Extends an LMDB database and any child databases it opens to have the `extensions` provided as well as any child databases it opens. This utility is common to other `lmdb` extensions like `lmdb-patch`, `lmdb-copy`, `lmdb-move`, `lmdb-index`.
 
-## Key Matching
+### Key Matching
 
 When `getRangeWhere` is called with an array, it uses the array as the `start` after replacing functions and regular expressions and automatically computes an `end` by copying the start and bumping the last primitive value by one ordering point. With the exception of strings, this means by one byte. For strings it means adding one character at the lowest string byte, `\x0` ( `\x00` is reserved by LMDB as a special delimiter). For example, `hello` becomes `hello\x0`. In version v1.0.3 and earlier, strings also had one byte added. Too frequently, this resulted in range results that were unexpectedly large. If you still want this behavior, use the options flag `wideRangeKeyStrings` set to `true`. A better way to match a wide range for the string portion of a key is to use a regular expression. For example `/person.*/g` is the same as `LIKE person%` in SQL and will match any string starting with `person`.
 
@@ -301,6 +301,8 @@ index.js |   91.89 |    80.53 |   96.29 |   94.35 | 10,13,30,46,75-76,160-163,22
 
 
 # Change History (Reverse Chronological Order)
+
+2023-04-24 v1.2.1 Documentation formatting.
 
 2023-04-23 v1.2.0 Fully deprecated `count`. Made adjustments to better support index queries on top of key queries.
 
