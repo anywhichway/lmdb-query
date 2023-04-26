@@ -1,7 +1,5 @@
 # lmdb-query
 
-ALERT: Breaking change from v1.0.3 to v1.1.0. Read [key matching](#key-matching).
-
 A higher level query mechanism for LMDB supporting functional, declarative and RegExp filters without the overhead of an entire database wrapper.
 
 Queries can match against keys, key fragments, values and value fragments and change result values or return just a subset of the top level/renamed/moved properties or nested/renamed/moved properties.
@@ -118,7 +116,7 @@ Warning, the explanations below are a bit dense! See the [examples](#examples) f
     }
 ```
 
-### withExtensions(db:lmdbDatabase,extenstions:object) - returns lmdbDatabase`
+### withExtensions(db:lmdbDatabase,extenstions:object) - returns lmdbDatabase
 
 Extends an LMDB database and any child databases it opens to have the `extensions` provided as well as any child databases it opens. This utility is common to other `lmdb` extensions like `lmdb-patch`, `lmdb-copy`, `lmdb-move`, `lmdb-index`.
 
@@ -301,6 +299,8 @@ index.js |   91.89 |    80.53 |   96.29 |   94.35 | 10,13,30,46,75-76,160-163,22
 
 
 # Change History (Reverse Chronological Order)
+
+2023-04-26 v1.3.0 Added `selector` as an export for use by `lmdb-index`.
 
 2023-04-24 v1.2.1 Documentation formatting.
 
