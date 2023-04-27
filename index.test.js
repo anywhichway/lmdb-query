@@ -1,7 +1,7 @@
 import {open} from "lmdb";
-import {withExtensions,getRangeWhere,ANY,NULL,NOTNULL,DONE,limit,bumpValue} from "./index.js";
+import {withExtensions,ANY,NULL,NOTNULL,DONE,limit,bumpValue} from "./index.js";
 
-const db = withExtensions(open("test.db",{useVersions:true}),{getRangeWhere}),
+const db = withExtensions(open("test.db",{useVersions:true})),
     child = db.openDB("child");
 db.clearSync()
 db.putSync("hello","world",1);
@@ -63,7 +63,7 @@ test("getRangeWhere filter key",() => {
 test("getRangeWhere filter key start and end",() => {
     // Returns all entries with a key that starts with "hello" followed by false or true
     // Stops enumerating after second key part is not true or false
-    const results = [...db.getRangeWhere({start:["hello",(value) => value===false],end:["hello",(value) => value===true ? true : DONE ]})];
+    const results = [...db.getRangeWhere({start:["hello",(value) => value===false||undefined],end:["hello",(value) => value===true ? true : DONE ]})];
     expect(results.length).toBe(2);
     expect(results[0].key[0]).toBe("hello");
     expect(results[0].value.message).toBe("my world");

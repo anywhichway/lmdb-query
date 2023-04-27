@@ -1,8 +1,7 @@
 import {open} from "lmdb";
-import {getRangeWhere,ANY} from "../index.js";
+import {withExtensions,ANY} from "../index.js";
 
-const db = open("test");
-db.getRangeWhere = getRangeWhere;
+const db = withExtensions(open("test"));
 db.clearSync();
 db.putSync("hello","world1");
 db.putSync(["hello"],"world2");

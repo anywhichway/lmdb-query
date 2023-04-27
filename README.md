@@ -1,5 +1,7 @@
 # lmdb-query
 
+POTENTIAL BREAKING CHANGE: v1.3.0 to v1.4.0 see [Change History](#change-history-reverse-chronological-order).
+
 A higher level query mechanism for LMDB supporting functional, declarative and RegExp filters without the overhead of an entire database wrapper.
 
 Queries can match against keys, key fragments, values and value fragments and change result values or return just a subset of the top level/renamed/moved properties or nested/renamed/moved properties.
@@ -68,24 +70,22 @@ npm install lmdb-query
 
 ```javascript
 import {open} from "lmdb";
-import {getRangeWhere,withExtensions} from "lmdb-query";
-const db = withExtensions(open("test"),{getRangeWhere});
+import {withExtensions} from "lmdb-query";
+const db = withExtensions(open("test"));
 ```
 
 This adds `getRangeWhere` to the database and any child databases it opens.
 
-You could also assign `getRangeWhere` directly to a database yourself or call it with a database as its context.
-
 ## API
 
-### * getRangeWhere(keyMatch: array|function|object, ?valueMatch: function|object,?select: function|object,?options: object) - yields `{key, value}` pairs.
+### * db.getRangeWhere(keyMatch: array|function|object, ?valueMatch: function|object,?select: function|object,?options: object) - yields `{key, value}` pairs.
 
 Warning, the explanations below are a bit dense! See the [examples](#examples) for a better understanding.
 
 #### keyMatch
 
 - If `keyMatch` is an array, it is used to find all keys lexically starting at the array and ending one byte higher (not inclusive). The array items can be any literals that are valid as LMDB key components, plus functions and regular expressions or strings that can be converted into regular expressions, i.e. strings matching the form `\/.*\/[dgimsuy]*` that can be compiled into a Regular Expression without error. The functions and regular expressions are used to test the nature of the key component at the same position as the function or regular expression. The functions should return truthy values for a match and falsy values for no match. Except, if a function returns DONE, enumeration will stop. 
-- If `keyMatch` is a function, a scan of all entries in the database will occur, but only those entries with keys that that result in a truthy value from `keyMatch` when passed as an argument will be yielded. Except, if the function returns `DONE`, enumeration will stop. 
+- If `keyMatch` is a function, a scan of all entries in the database will occur, but only those entries with keys that that result in a value other than `undefined` from `keyMatch` when passed as an argument will be yielded. Except, if the function returns `DONE`, enumeration will stop. 
 - If `keyMatch` is an object, it must satisfy the range specification conditions of LMDB, i.e. it should have a `start` and/or `end`. If it has neither a `start` or `end`, a scan of all entries in the database will occur.
 
 #### valueMatch
@@ -144,8 +144,7 @@ The best way to show examples is simply use our test cases, some but not all of 
 import {open} from "lmdb";
 import {getRangeWhere,ANY,DONE,limit,bumpValue} from "./index.js";
 
-const db = open("test.db");
-db.getRangeWhere = getRangeWhere;
+const db = withExtensions(open("test.db"));
 db.clearSync()
 db.putSync("hello","world");
 db.putSync(["hello",false], {message:"my world"});
@@ -293,12 +292,13 @@ Testing is conducted using Jest.
                                                
 File      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
 ----------|---------|----------|---------|---------|-------------------
-All files |   91.89 |    80.53 |   96.29 |   94.35 |
-index.js |   91.89 |    80.53 |   96.29 |   94.35 | 10,13,30,46,75-76,160-163,222
-
+All files |   91.96 |    80.61 |   96.42 |   94.41 |
+index.js |   91.96 |    80.61 |   96.42 |   94.41 | 10,13,30,46,75-76,160-163,222
 
 
 # Change History (Reverse Chronological Order)
+
+2023-04-27 v1.4.0 POTENTIAL BREAKING CHANGE Slight modification to spec for functions passed as parts of a key in `keyMatch`. They should now return `undefined` in order to fail. Anything else will succeed, e.g. `(value) => value==false` would be `(value) => value===false||undefined`. This makes the calling interface for `keyMatch`, `valueMatch` and `select` the same. Writing a select that transforms values in a simple way really requires the use of `undefined` and having all three portions of the query process behave the same way makes debugging easier. Also simplified use of `withExtensions`.
 
 2023-04-26 v1.3.0 Added `selector` as an export for use by `lmdb-index`.
 

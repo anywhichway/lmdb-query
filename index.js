@@ -237,7 +237,7 @@ function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>valu
             (done===DONE || conditions.some((condition) => {
                 return condition.every((part, i) => {
                     const type = typeof part;
-                    if (type === "function") return done = part(key[i]);
+                    if (type === "function") return ![DONE,undefined].includes(done = part(key[i]));
                     if (part && type === "object") {
                         if (part instanceof RegExp) {
                             return typeof(key[i])==="string" && !!key[i].match(part);
@@ -262,6 +262,10 @@ function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>valu
     }
 }
 
-import {withExtensions} from "lmdb-extend";
+import {withExtensions as lmdbExtend} from "lmdb-extend";
 
-export {getRangeWhere, ANY, NULL, NOTNULL, DONE, bumper as bumpValue, limit, limit as count,matchPattern,selector,withExtensions}
+const withExtensions = (db,extensions={}) => {
+    return lmdbExtend(db,{getRangeWhere,...extensions})
+}
+
+export {getRangeWhere, ANY, NULL, NOTNULL, DONE, bumper as bumpValue, limit, matchPattern,selector,withExtensions}
