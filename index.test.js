@@ -82,7 +82,7 @@ test("getRangeWhere filter key start and literal end",() => {
 })
 test("getRangeWhere filter object with function",() => {
     // Returns all entries with a key that starts with "hello" and a value with the message "my world"
-    const results = [...db.getRangeWhere(["hello"],(value) => value.message==="my world")];
+    const results = [...db.getRangeWhere(["hello"],(value) => value.message==="my world" ? value : undefined)];
     expect(results.length).toBe(1);
     expect(results[0].key[0]).toBe("hello");
     expect(results[0].value.message).toBe("my world");
@@ -90,7 +90,7 @@ test("getRangeWhere filter object with function",() => {
 test("getRangeWhere filter object with function and DONE",() => {
     // Slighty more efficient than the previous test
     // It stops enumerating after when the message is greater than "my world"
-    const results = [...db.getRangeWhere(["hello"],(value) => value.message==="my world" ? true : value.message>"my world" ? DONE : false)];
+    const results = [...db.getRangeWhere(["hello"],(value) => value.message==="my world" ? true : value.message>"my world" ? DONE : undefined)];
     expect(results.length).toBe(1);
     expect(results[0].key[0]).toBe("hello");
     expect(results[0].value.message).toBe("my world");
@@ -122,7 +122,7 @@ test("getRangeWhere filter nested object",() => {
 test("getRangeWhere filter object with property value test and limit",() => {
     // only yields objects with the message "my world"
     // note this will test only 2 entries with a key starting with "hello"
-    const results = [...db.getRangeWhere(["hello"],{message:(value) => value.endsWith("world")},null,{limit:2})];
+    const results = [...db.getRangeWhere(["hello"],{message:(value) => value.endsWith("world") ? value : undefined},null,{limit:2})];
     expect(results.length).toBe(2);
     expect(results[0].key[0]).toBe("hello");
     expect(results[0].value.message).toBe("my world");
@@ -133,7 +133,7 @@ test("getRangeWhere filter object with property as regular expression",() => {
     // only yields objects with the message "my world"
     // note this will test ALL entries with a key starting with "hello"
     // and check that properties on values match the regular expression
-    const results = [...db.getRangeWhere(["hello"],{[/mess.*/g]:(value) => value.endsWith("world")})];
+    const results = [...db.getRangeWhere(["hello"],{[/mess.*/g]:(value) => value.endsWith("world") ? value : undefined})];
     expect(results.length).toBe(3);
     expect(results[0].key[0]).toBe("hello");
     expect(results[0].value.message).toBe("my world");

@@ -84,16 +84,16 @@ Warning, the explanations below are a bit dense! See the [examples](#examples) f
 
 #### keyMatch
 
-- If `keyMatch` is an array, it is used to find all keys lexically starting at the array and ending one byte higher (not inclusive). The array items can be any literals that are valid as LMDB key components, plus functions and regular expressions or strings that can be converted into regular expressions, i.e. strings matching the form `\/.*\/[dgimsuy]*` that can be compiled into a Regular Expression without error. The functions and regular expressions are used to test the nature of the key component at the same position as the function or regular expression. The functions should return truthy values for a match and falsy values for no match. Except, if a function returns DONE, enumeration will stop. 
-- If `keyMatch` is a function, a scan of all entries in the database will occur, but only those entries with keys that that result in a value other than `undefined` from `keyMatch` when passed as an argument will be yielded. Except, if the function returns `DONE`, enumeration will stop. 
+- If `keyMatch` is an array, it is used to find all keys lexically starting at the array and ending one byte higher (not inclusive). The array items can be any literals that are valid as LMDB key components, plus functions and regular expressions or strings that can be converted into regular expressions, i.e. strings matching the form `\/.*\/[dgimsuy]*` that can be compiled into a Regular Expression without error. The functions and regular expressions are used to test the nature of the key component at the same position as the function or regular expression. The functions should 'undefined' for no match. Any other value, including `false` will succeed. Except, if a function returns DONE, enumeration will stop. This allows This allows `keyMatch`, `valueMatch` and `select` to utilize the same functions.
+- If `keyMatch` is a function, a scan of all entries in the database will occur, but only those entries with keys that that result in a value other than `undefined` from `keyMatch` when passed as an argument will be yielded. Except, if the function returns `undefined` or `DONE`, enumeration will stop. 
 - If `keyMatch` is an object, it must satisfy the range specification conditions of LMDB, i.e. it should have a `start` and/or `end`. If it has neither a `start` or `end`, a scan of all entries in the database will occur.
 
 #### valueMatch
 
 `valueMatch` is optional and is used to filter out entries based on values. 
 
-- If `valueMatch` is a function, the function should return a truthy result for the value of the entry to be yielded or DONE. 
-- If `valueMatch` is an object, then the value property in the entry is expected to contain an object and for each entry, (`[property,test]`), in the `valueMatch` object the same property in the database entry value should be equal to `test`; or if `test` is an object, match recursively; or if `test` is a function, calling it as `test(value[property],property,value)` should be truthy for the entry to be yielded. Note, `property` can also be a serialized regular expression. You can also use the utility function `limit` to stop enumeration when a certain number of entries have been yielded or provide `limit` as an option to `getRangeWhere`.
+- If `valueMatch` is a function, the function should return a value other than `undefined` or `DONE` for the entry to be yielded. *Note*: Returning `false` will succeed. Return `undefined` to fail. This allows `keyMatch`, `valueMatch` and `select` to utilize the same functions.
+- If `valueMatch` is an object, then the value property in the entry is expected to contain an object and for each entry, (`[property,test]`), in the `valueMatch` object the same property in the database entry value should be equal to `test`; or if `test` is an object, match recursively; or if `test` is a function, calling it as `test(value[property],property,value)` should return a value other than `undefined` or `DONE` for the entry to be yielded. Note, `property` can also be a serialized regular expression. You can use the utility function `limit` to stop enumeration when a certain number of entries have been yielded or provide `limit` as an option to `getRangeWhere`.
 
 #### select
 
@@ -298,7 +298,9 @@ index.js |   91.96 |    80.61 |   96.42 |   94.41 | 10,13,30,46,75-76,160-163,22
 
 # Change History (Reverse Chronological Order)
 
-2023-04-27 v1.4.0 POTENTIAL BREAKING CHANGE Slight modification to spec for functions passed as parts of a key in `keyMatch`. They should now return `undefined` in order to fail. Anything else will succeed, e.g. `(value) => value==false` would be `(value) => value===false||undefined`. This makes the calling interface for `keyMatch`, `valueMatch` and `select` the same. Writing a select that transforms values in a simple way really requires the use of `undefined` and having all three portions of the query process behave the same way makes debugging easier. Also simplified use of `withExtensions`.
+2023-04-28 v1.5.0 Updated documentation. Refined code to address edge cases with v1.4.0 changes.
+
+2023-04-27 v1.4.0 POTENTIAL BREAKING CHANGE Slight modification to spec for functions passed as parts of a key in `keyMatch`. They should now return `undefined` in order to fail. Anything else will succeed, e.g. `(value) => value==false` would be `(value) => value===false ? value : undefined`. This makes the calling interface for `keyMatch`, `valueMatch` and `select` the same. Writing a select that transforms values in a simple way really requires the use of `undefined` and having all three portions of the query process behave the same way makes debugging easier. Also simplified use of `withExtensions`.
 
 2023-04-26 v1.3.0 Added `selector` as an export for use by `lmdb-index`.
 

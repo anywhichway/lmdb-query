@@ -156,7 +156,7 @@ const matchPattern = (value,pattern) => {
                     return Object.keys(value).every((key) => {
                         if(regexp.test(key)) {
                             const type = typeof(test);
-                            if(type==="function") return test(value[key],key,value);
+                            if(type==="function") return test(value[key],key,value)!==undefined;
                             if(test && type==="object") return matchPattern(value[key],test);
                             return value[key]===test
                         }
@@ -166,7 +166,7 @@ const matchPattern = (value,pattern) => {
             }
         }
         const type = typeof(test);
-        if(type==="function") return test(value[key],key,value);
+        if(type==="function") return test(value[key],key,value)!==undefined;
         if(test && type==="object") return matchPattern(value[key],test);
         return value[key]===test
     })
@@ -179,7 +179,7 @@ function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>valu
     select ||= (value) => value;
     if(typeof(valueMatch)==="object") {
         const pattern = valueMatch;
-        valueMatch = (value) => matchPattern(value,pattern);
+        valueMatch = (value) => matchPattern(value,pattern)!==false ? value : undefined;
     }
     let start, end, optionEnd;
     const keyMatchType = typeof(keyMatch);
@@ -232,8 +232,8 @@ function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>valu
             wasPrimitive = true;
             key = [key];
         }
-        if ((keyMatchType!=="function" || keyMatch(key)) &&
-            (done = valueMatch(value)) &&
+        if ((keyMatchType!=="function" || keyMatch(key)!==undefined) &&
+            (done = valueMatch(value))!==undefined &&
             (done===DONE || conditions.some((condition) => {
                 return condition.every((part, i) => {
                     const type = typeof part;
