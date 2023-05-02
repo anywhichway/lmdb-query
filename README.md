@@ -1,8 +1,6 @@
 # lmdb-query
 
-POTENTIAL BREAKING CHANGE: v1.3.0 to v1.4.0 see [Change History](#change-history-reverse-chronological-order).
-
-A higher level query mechanism for LMDB supporting functional, declarative and RegExp filters without the overhead of an entire database wrapper.
+A higher level query mechanism for LMDB supporting functional, declarative and RegExp filters without the overhead of an entire database wrapper. Also see [lmdb-oql](https://github.com/anywhichway/lmdb-oql) for an even higher level query mechanism that supports SQL-like queries and indexed objects.
 
 Queries can match against keys, key fragments, values and value fragments and change result values or return just a subset of the top level/renamed/moved properties or nested/renamed/moved properties.
 
@@ -298,6 +296,8 @@ index.js |   91.96 |    80.61 |   96.42 |   94.41 | 10,13,30,46,75-76,160-163,22
 
 # Change History (Reverse Chronological Order)
 
+2023-05-02 v1.5.1 Updated docs and license.
+
 2023-04-28 v1.5.0 Updated documentation. Refined code to address edge cases with v1.4.0 changes.
 
 2023-04-27 v1.4.0 POTENTIAL BREAKING CHANGE Slight modification to spec for functions passed as parts of a key in `keyMatch`. They should now return `undefined` in order to fail. Anything else will succeed, e.g. `(value) => value==false` would be `(value) => value===false ? value : undefined`. This makes the calling interface for `keyMatch`, `valueMatch` and `select` the same. Writing a select that transforms values in a simple way really requires the use of `undefined` and having all three portions of the query process behave the same way makes debugging easier. Also simplified use of `withExtensions`.
@@ -337,3 +337,9 @@ index.js |   91.96 |    80.61 |   96.42 |   94.41 | 10,13,30,46,75-76,160-163,22
 2023-04-06 v0.0.2 Added unit tests. Exposed `bumpValue`. Adjusted auto end to only bump the last primitive value. Added `bumpIndex` option to `getRangeWhere`.
 
 2023-04-05 v0.0.1 Initial public release 
+
+# License
+
+This software is provided as-is under the [MIT license](http://opensource.org/licenses/MIT).
+
+Copyright (c) 2023, AnyWhichWay, LLC and Simon Y. Blackwell.

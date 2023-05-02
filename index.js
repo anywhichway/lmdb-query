@@ -1,3 +1,15 @@
+/*MIT License
+Copyright 2023, AnyWhichWay, LLC and Simon Y. Blackwell
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
 const bumpChar = (ch) => {
     const code = ch.charCodeAt();
     if (code === 65535) return null;
@@ -98,10 +110,11 @@ const limit = (f,number=1) => {
     }
 }
 
-const selector = (select,value,{key,object,root,as=key}={}) => {
+const selector = (select,value,{db,key,object,root,as=key}={}) => {
+    if(select==null) return value;
     const type = typeof(select);
     if(type==="function") {
-        return select(value,{key,object,root,as});
+        return select(value,{db,key,object,root,as});
     }
     if(select && type==="object") {
         return Object.entries(select).reduce((result,[key,select]) => {
@@ -120,7 +133,7 @@ const selector = (select,value,{key,object,root,as=key}={}) => {
                             const match = regexp.exec(key);
                             if(match) {
                                 const as = match[1] || match[0],
-                                    selection = selector(v,value[key],{key,object:value,root:root||=result,as});
+                                    selection = selector(v,value[key],{db,key,object:value,root:root||=result,as});
                                 if(selection!==undefined) result[as] = selection;
                             }
                             return result;
@@ -129,7 +142,7 @@ const selector = (select,value,{key,object,root,as=key}={}) => {
                 }
             }
             if(value[key]!==undefined) {
-                const selection = selector(select,value[key],{key,object:value,root:root||=result,as});
+                const selection = selector(select,value[key],{db,key,object:value,root:root||=result,as});
                 if(selection!==undefined) result[key] = selection;
             }
             return result;
