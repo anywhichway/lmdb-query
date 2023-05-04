@@ -39,6 +39,8 @@ FROM PERSON, ADDRESS WHERE PERSON.id = ADDRESS.personId  AND id LIKE "person%" A
 
 See also:
 
+[LMDB OQL](https://github.com/anywhichway/lmdb-oql) - An even higher level query mechanism that supports SQL-like queries and indexed objects
+
 [LMDB Index](https://github.com/anywhichway/lmdb-index) - Provides indexing and index queries for objects inserted into LMDB databases
 
 [LMDB Cluster](https://github.com/anywhichway/lmdb-cluster) - A clustered version of LMDB that supports a REST API with sockets planned.
@@ -290,11 +292,14 @@ Testing is conducted using Jest.
                                                
 File      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
 ----------|---------|----------|---------|---------|-------------------
-All files |   91.96 |    80.61 |   96.42 |   94.41 |
-index.js |   91.96 |    80.61 |   96.42 |   94.41 | 10,13,30,46,75-76,160-163,222
+All files |   88.63 |    74.55 |   88.46 |   91.62 |
+index.js |   88.63 |    74.55 |   88.46 |   91.62 | 21,24,41,57,86-87,171-174,212,226-230
+
 
 
 # Change History (Reverse Chronological Order)
+
+2023-05-04 v1.5.2 Added performance tests. Optimized `getRangeWhere`.
 
 2023-05-02 v1.5.1 Updated docs and license.
 

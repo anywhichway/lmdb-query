@@ -9,7 +9,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-
 const bumpChar = (ch) => {
     const code = ch.charCodeAt();
     if (code === 65535) return null;
@@ -47,7 +46,7 @@ const bumper = (value,i,wideRangeKeyStrings) => {
 const isRegExp = (value) => {
     const type = typeof(value);
     if(type==="string") {
-        if(value[0] === "/" && value.match(/\/.*\/[dgimsuy]+$/)) {
+        if(value[0] === "/" && value.match(/\/.*\/[dgimsuyv]+$/)) {
             const i = value.lastIndexOf("/");
             if (i > 1) {
                 try {
@@ -110,11 +109,10 @@ const limit = (f,number=1) => {
     }
 }
 
-const selector = (select,value,{db,key,object,root,as=key}={}) => {
-    if(select==null) return value;
+const selector = (select,value,{key,object,root,as=key}={}) => {
     const type = typeof(select);
     if(type==="function") {
-        return select(value,{db,key,object,root,as});
+        return select(value,{key,object,root,as});
     }
     if(select && type==="object") {
         return Object.entries(select).reduce((result,[key,select]) => {
@@ -133,7 +131,7 @@ const selector = (select,value,{db,key,object,root,as=key}={}) => {
                             const match = regexp.exec(key);
                             if(match) {
                                 const as = match[1] || match[0],
-                                    selection = selector(v,value[key],{db,key,object:value,root:root||=result,as});
+                                    selection = selector(v,value[key],{key,object:value,root:root||=result,as});
                                 if(selection!==undefined) result[as] = selection;
                             }
                             return result;
@@ -142,7 +140,7 @@ const selector = (select,value,{db,key,object,root,as=key}={}) => {
                 }
             }
             if(value[key]!==undefined) {
-                const selection = selector(select,value[key],{db,key,object:value,root:root||=result,as});
+                const selection = selector(select,value[key],{key,object:value,root:root||=result,as});
                 if(selection!==undefined) result[key] = selection;
             }
             return result;
@@ -185,7 +183,7 @@ const matchPattern = (value,pattern) => {
     })
 }
 
-function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>value,{wideRangeKeyStrings,versions,offset,bumpIndex,bump=bumper,limit=Infinity}={}) {
+function* getRangeWhere(keyMatch, valueMatch,select,{wideRangeKeyStrings,versions,offset,bumpIndex,bump=bumper,limit=Infinity,warn}={}) {
     if(bumpIndex!==undefined && typeof(bumpIndex)!=="number") throw new TypeError(`bumpIndex must be a number for getRangeWhere, got ${typeof(bumpIndex)} : ${bumpIndex}`);
     if(limit && typeof(limit)!=="number") throw new TypeError(`limit must be a number for getRangeWhere, got ${typeof(limit)} : ${limit}`);
     valueMatch ||= (value) => value;
@@ -200,7 +198,7 @@ function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>valu
         start = [...keyMatch];
         optionEnd = toRangeKey(keyMatch,keyMatch,true);
         if(optionEnd) {
-            if(bumpIndex===undefined) bumpIndex = optionEnd.findLastIndex((value) => { const type = typeof(value); return type!=="function" && !isRegExp(value) });
+            if(bumpIndex===undefined) bumpIndex = optionEnd.findLastIndex((value) => { return typeof(value)!=="function" && !isRegExp(value) });
             else if(bumpIndex>=optionEnd.length) throw new RangeError(`bumpIndex ${bumpIndex} is >= the length,  ${optionEnd.length}`);
             optionEnd = optionEnd.map((value,i) => i===bumpIndex ? bump(value,i,wideRangeKeyStrings) : value);
         } else if(bumpIndex!==undefined) {
@@ -210,24 +208,21 @@ function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>valu
         start = keyMatch.start;
         end = keyMatch.end;
         optionEnd = toRangeKey(keyMatch.end,keyMatch.end||keyMatch.start,true);
-        if(!getRangeWhere.SILENT && keyMatch.start===undefined && keyMatch.end===undefined) {
+        if(warn && keyMatch.start===undefined && keyMatch.end===undefined) {
             console.warn("keyMatch object has neither `start` or `end`, scanning all database values")
         }
     } else if(keyMatchType!=="function") {
         throw new TypeError(`keyMatch for getRangeWhere must be an Array, an object, or function not ${keyMatchType}`)
     }
-    const options = {
-        start:toRangeKey(start),
-        end:optionEnd
-    };
+    const optionStart = toRangeKey(start),
+        options = { },
+        conditions = [];
+    if(optionStart) options.start = optionStart;
+    if(optionEnd) options.end = optionEnd;
     if(versions) options.versions = true;
-    //options.end = toRangeKey(end, keyMatch.end ? undefined : options.start);
-    if(!options.start) delete options.start;
-    if(!options.end) delete options.end;
-    const conditions = [];
     if(start) conditions.push(start);
     if(end) conditions.push(end);
-    if(!getRangeWhere.SILENT) {
+    if(warn) {
         const checkKey = keyMatch && typeof(keyMatch)==="object" ? (Array.isArray(keyMatch) ? keyMatch : Object.values(keyMatch)) : null;
         if(checkKey) {
             if (checkKey.some((value) => typeof (value) === "function")) {
@@ -239,28 +234,28 @@ function* getRangeWhere(keyMatch, valueMatch=(value)=>value,select=(value)=>valu
     }
 
     let done;
+    const excluded = [DONE,undefined];
     for (let { key, value, version } of this.getRange(options)) {
         let wasPrimitive;
         if(!Array.isArray(key)) {
             wasPrimitive = true;
             key = [key];
         }
-        if ((keyMatchType!=="function" || keyMatch(key)!==undefined) &&
-            (done = valueMatch(value))!==undefined &&
-            (done===DONE || conditions.some((condition) => {
+        if ((keyMatchType!=="function" ||  !excluded.includes(keyMatch(key))) &&
+            (conditions.some((condition) => {
                 return condition.every((part, i) => {
                     const type = typeof part;
-                    if (type === "function") return ![DONE,undefined].includes(done = part(key[i]));
-                    if (part && type === "object") {
-                        if (part instanceof RegExp) {
-                            return typeof(key[i])==="string" && !!key[i].match(part);
-                        }
+                    if (type === "function") {
+                        return !excluded.includes(done = part(key[i]));
+                    }
+                    if (part && type === "object" && part instanceof RegExp) {
+                        return typeof(key[i])==="string" && !!key[i].match(part);
                     }
                     return true;
                 })
-            }))
+            }) && done!==DONE) &&
+            !excluded.includes(valueMatch(value))
         ) {
-            if(done===DONE) return;
             value = selector(select,value);
             if(value===undefined) continue;
             if(offset && offset-->0) continue;
