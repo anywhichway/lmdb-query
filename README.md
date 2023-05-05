@@ -299,6 +299,8 @@ index.js |   88.63 |    74.55 |   88.46 |   91.62 | 21,24,41,57,86-87,171-174,21
 
 # Change History (Reverse Chronological Order)
 
+2023-05005 v1.5.3 Updated version of `lmdb-extend` to `v1.2.1
+
 2023-05-04 v1.5.2 Added performance tests. Optimized `getRangeWhere`.
 
 2023-05-02 v1.5.1 Updated docs and license.
